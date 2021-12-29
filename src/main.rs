@@ -2,7 +2,7 @@ use crate::ColorType::*;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
+use byteorder::{ReadBytesExt, LittleEndian};
 
 struct TGAHeader {
     id_length: u8,
@@ -114,7 +114,7 @@ impl TGAImage {
     pub fn read_tga_file(&mut self, filename: &str) -> io::Result<()> {
         let mut f = File::open(filename)?;
 
-        let mut header = TGAHeader {
+        let header = TGAHeader {
             id_length: f.read_u8()?,
             color_map_type: f.read_u8()?,
             data_type_code: f.read_u8()?,
@@ -188,8 +188,8 @@ impl TGAImage {
         let index = ((x+y*self.width)*self.bytespp) as usize;
         match &c.color_type {
             RGBA(buf) => {
-                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()[index..index+4];
-                ptr.copy_from_slice(&[buf.b, buf.g, buf.r, buf.a]);
+                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()[index..index+self.bytespp as usize];
+                ptr.copy_from_slice(&[buf.b, buf.g, buf.r]);
             },
             _ => println!("Nothing here")
         }
@@ -203,6 +203,23 @@ impl TGAImage {
         return TGAColor::new_raw(&self.data.as_ref().unwrap().as_slice()[index..], self.bytespp);
     }
 
+    pub fn flip_vertically(&mut self) -> bool {
+        if self.data.is_none() { return false; }
+        let bytes_per_line = (self.width*self.bytespp) as usize;
+        let mut line = vec![0; bytes_per_line];
+        let half = self.height>>1;
+        for i in 0..half as usize {
+            // TODO: change self.{height, width, length, ...} to usize
+            let l1 = (i*bytes_per_line) as usize;
+            let l2 = (self.height as usize-1-i)*bytes_per_line;
+            line.as_mut_slice().copy_from_slice(&self.data.as_ref().unwrap().as_slice()[l1..l1+bytes_per_line]);
+            let line1 = self.data.as_mut().unwrap().as_mut_slice();
+            line1.copy_within(l2..l2+bytes_per_line, l1);
+            line1[l2..l2+bytes_per_line].copy_from_slice(line.as_slice());
+        }
+        true
+    }
+
 }
     
 
@@ -212,6 +229,7 @@ fn main() {
 
     let mut image = TGAImage::new_dimensions(100, 100, TGAFormat.RGB as i32);
     image.set(52, 41, &red);
-    image.set(40, 40, &red);
+    image.set(52, 59, &white);
+    image.flip_vertically();
     image.write_tga_file("/mnt/c/Users/shresr/Desktop/output.tga", false).unwrap();
 }
