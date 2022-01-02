@@ -3,6 +3,7 @@ use std::io;
 use std::io::prelude::*;
 use std::fs::File;
 use byteorder::{ReadBytesExt, LittleEndian};
+use obj::Obj;
 
 struct TGAHeader {
     id_length: u8,
@@ -52,7 +53,7 @@ enum ColorType {
     Val(u32),
 }
 
-struct TGAColor {
+pub struct TGAColor {
     color_type: ColorType,
     bytespp: i32,
 }
@@ -93,7 +94,7 @@ const TGAFormat: Format = Format {
     RGBA: 4,
 };
 
-struct TGAImage {
+pub struct TGAImage {
     data: Option<Box<Vec<u8>>>,
     width: i32,
     height: i32,
@@ -221,15 +222,79 @@ impl TGAImage {
     }
 
 }
-    
 
-fn main() {
+fn swap(a: &mut i32, b: &mut i32) {
+    let tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+pub fn line(mut x0: i32, mut y0: i32, mut x1: i32, mut y1: i32, image: &mut TGAImage, color: &TGAColor) {
+    let mut steep = false;
+    if (x0-x1).abs()<(y0-y1).abs() {
+        swap(&mut x0, &mut y0);
+        swap(&mut x1, &mut y1);
+        steep = true;
+    }
+    if x0>x1 {
+        swap(&mut x0, &mut x1);
+        swap(&mut y0, &mut y1);
+    }
+    let dx = x1-x0;
+    let dy = y1-y0;
+    let derror2 = dy.abs()*2;
+    let mut error2 = 0;
+    let mut y = y0;
+    for x in x0..x1+1 {
+        if steep {
+            image.set(y, x, color);
+        } else {
+            image.set(x, y, color);
+        }
+        error2 += derror2;
+        if error2 > dx {
+            y += if y1>y0 { 1 } else { -1 };
+            error2 -= dx*2;
+        }
+    }
+}
+
+pub fn check_expected() {
     let white = TGAColor::new_rgba(255, 255, 255, 255);
     let red = TGAColor::new_rgba(255, 0, 0, 255);
 
     let mut image = TGAImage::new_dimensions(100, 100, TGAFormat.RGB as i32);
     image.set(52, 41, &red);
-    image.set(52, 59, &white);
     image.flip_vertically();
     image.write_tga_file("/mnt/c/Users/shresr/Desktop/output.tga", false).unwrap();
+}
+
+
+
+const WIDTH: i32 = 800;
+const HEIGHT: i32 = 800;
+const WHITE: TGAColor = TGAColor { color_type: RGBA(RGBA { r: 255, g: 255, b: 255, a: 255, }), bytespp: 4 };
+const RED: TGAColor = TGAColor { color_type: RGBA(RGBA { r: 255, g: 0, b: 0, a: 255, }), bytespp: 4 };
+
+fn main() {
+    let model = Obj::load("/mnt/c/Users/shresr/Desktop/african_head.obj").unwrap();
+    println!("{} {} {}", model.data.normal.len(), model.data.position.len(), model.data.objects[0].groups[0].polys.len());
+    
+    let mut image = TGAImage::new_dimensions(WIDTH, HEIGHT, TGAFormat.RGB as i32);
+    for i in 0..model.data.objects[0].groups[0].polys.len() {
+        let face = &model.data.objects[0].groups[0].polys[i];
+        for j in 0..3 {
+            let v0 = model.data.position[face.0[j].0];
+            let v1 = model.data.position[face.0[(j+1)%3].0];
+            let x0 = ((v0[0]+1.)*(WIDTH as f32)/2.) as i32;
+            let y0 = ((v0[1]+1.)*(HEIGHT as f32)/2.) as i32;
+            let x1 = ((v1[0]+1.)*(WIDTH as f32)/2.) as i32;
+            let y1 = ((v1[1]+1.)*(HEIGHT as f32)/2.) as i32;
+            line(x0, y0, x1, y1, &mut image, &WHITE);
+        }
+    }
+
+    image.flip_vertically();
+    image.write_tga_file("/mnt/c/Users/shresr/Desktop/output.tga", false).unwrap();
+
 }
