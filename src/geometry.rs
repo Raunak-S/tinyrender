@@ -1,9 +1,9 @@
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Sub, Mul, BitXor};
 
 #[derive(Debug, Clone)]
 pub struct Vec2D<T> where T: num::Num {
-    x: T,
-    y: T,
+    pub x: T,
+    pub y: T,
 }
 
 impl<T> Vec2D<T> where T: num::Num {
@@ -35,23 +35,23 @@ impl<T> Sub for Vec2D<T> where T: num::Num {
 
 impl<T, F> Mul<F> for Vec2D<T> where T: num::Num
                                     + From<F>
-                                    + Mul<F, Output = F>,
+                                    + num::ToPrimitive,
                                     F: num::Float {
     type Output = Self;
 
     fn mul(self, _rhs: F) -> Self {
         Self {
-            x: T::from(self.x*_rhs),
-            y: T::from(self.y*_rhs),
+            x: T::from(F::from(self.x).unwrap()*_rhs),
+            y: T::from(F::from(self.y).unwrap()*_rhs),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Vec3D<T> where T: num::Num {
-    x: T,
-    y: T,
-    z: T,
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
 impl<T> Vec3D<T> where T: num::Num {
@@ -94,6 +94,18 @@ impl<T, F> Mul<F> for Vec3D<T> where T: num::Num
             x: T::from(self.x*_rhs),
             y: T::from(self.y*_rhs),
             z: T::from(self.z*_rhs),
+        }
+    }
+}
+
+impl<T> BitXor for Vec3D<T> where T: num::Num {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.y*rhs.z-self.z*rhs.y,
+            y: self.z*rhs.x-self.x*rhs.z,
+            z: self.x*rhs.y-self.y*rhs.x,
         }
     }
 }
