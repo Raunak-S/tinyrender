@@ -1,3 +1,4 @@
+use crate::geometry::*;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
@@ -219,9 +220,9 @@ impl TGAImage {
 
 }
 
-fn swap(a: &mut i32, b: &mut i32) {
-    let tmp = *a;
-    *a = *b;
+fn swap<T: Clone>(a: &mut T, b: &mut T) {
+    let tmp = a.clone();
+    *a = b.clone();
     *b = tmp;
 }
 
@@ -254,6 +255,27 @@ pub fn line(mut x0: i32, mut y0: i32, mut x1: i32, mut y1: i32, image: &mut TGAI
         }
     }
 }
+
+// pub fn triangle(mut t0: Vec2<i32>, mut t1: Vec2<i32>, mut t2: Vec2<i32>, image: &mut TGAImage, color: &TGAColor) {
+//     if t0.y==t1.y && t0.y==t2.y { }
+//     if t0.y>t1.y { swap(&mut t0, &mut t1) }
+//     if t0.y>t2.y { swap(&mut t0, &mut t2) }
+//     if t1.y>t2.y { swap(&mut t1, &mut t2) }
+//     let total_height = t2.y-t0.y;
+//     for i in 0..total_height {
+//         let second_half = i>t1.y-t0.y || t1.y==t0.y;
+//         let segment_height = if second_half { t2.y-t1.y } else { t1.y-t0.y };
+//         let alpha = (i/total_height) as f32;
+//         let beta = ((i-(if second_half { t1.y-t0.y } else { 0 }))/segment_height) as f32;
+//         let mut A = t0.add(&(t2.sub(&t0)).mult(alpha));
+//         let mut B = if second_half { t1.add(&(t2.sub(&t1)).mult(beta)) } else { t0.add(&(t1.sub(&t0)).mult(alpha)) };
+//         if A.x>B.x { swap(&mut A, &mut B) }
+//         for j in A.x..B.x {
+//             image.set(j as i32, (t0.y+i) as i32, &color);
+//         }
+//     }
+// }
+
 
 pub const WHITE: TGAColor = TGAColor { color_type: ColorType::RGBA(RGBA { r: 255, g: 255, b: 255, a: 255, }), bytespp: 4 };
 pub const RED: TGAColor = TGAColor { color_type: ColorType::RGBA(RGBA { r: 255, g: 0, b: 0, a: 255, }), bytespp: 4 };
