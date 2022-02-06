@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, BitXor};
+use std::ops::{Add, Sub, Mul, BitXor, Index, IndexMut};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec2D<T> where T: num::Num {
@@ -103,8 +103,7 @@ impl<T> Mul<f32> for Vec3D<T> where T: num::Num
 }
 
 impl<T> Mul for Vec3D<T> where T: num::Num
-                                + num::NumCast
-                                + Lossyf32 {
+                                + num::NumCast {
     type Output = f32;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -143,5 +142,121 @@ impl Lossyf32 for i32 {
 impl Lossyf32 for f32 {
     fn lossy_from_f32(f: f32) -> Self {
         f
+    }
+}
+
+const DEFAULT_ALLOC: usize = 4;
+
+pub struct Matrix {
+    m: Vec<Vec<f32>>,
+    rows: i32,
+    cols: i32,
+}
+
+impl Matrix {
+    pub fn new(r: Option<i32>, c: Option<i32>) -> Self {
+        let col_val = if let Some(num) = c { num as usize } else { DEFAULT_ALLOC };
+        let row_val = if let Some(num) = r { num as usize } else { DEFAULT_ALLOC };
+        Self {
+            m: vec![vec![0.0; col_val]; row_val],
+            rows: row_val as i32,
+            cols: col_val as i32,
+        }
+    }
+    pub fn nrows(&self) -> i32 { self.rows }
+    pub fn ncols(&self) -> i32 { self.cols }
+    pub fn identity(&self, dimensions: i32) -> Self {
+        let mut E = Matrix::new(Some(dimensions), Some(dimensions));
+        for i in 0..dimensions as usize {
+            for j in 0..dimensions as usize {
+                E[i][j] = if i==j { 1. } else { 0. };
+            }
+        }
+        E
+    }
+    pub fn transpose(&self) -> Self {
+        let mut result = Matrix::new(Some(self.cols), Some(self.rows));
+        for i in 0..self.rows as usize {
+            for j in 0..self.cols as usize {
+                result[j][i] = self.m[i][j];
+            }
+        }
+        result
+    }
+    pub fn inverse(&self) -> Self {
+        assert!(self.rows==self.cols);
+        let mut result = Matrix::new(Some(self.rows), Some(self.cols*2));
+        for i in 0..self.rows as usize {
+            for j in 0..self.cols as usize {
+                result[i][j] = self.m[i][j];
+            }
+        }
+        for i in 0..self.rows as usize {
+            result[i][i+self.cols as usize] = 1.;
+        }
+        for i in 0..(self.rows-1) as usize {
+            for j in (0..=result.cols-1).rev() {
+                result[i][j as usize] /= result[i][i];
+            }
+            for k in i+1..self.rows as usize {
+                let coeff = result[k][i];
+                for j in 0..result.cols as usize {
+                    result[k][j] -= result[i][j]*coeff;
+                }
+            }
+        }
+
+        for j in (self.rows-1..=result.cols-1).rev() {
+            result[(self.rows-1) as usize][j as usize] /= result[(self.rows-1) as usize][(self.rows-1) as usize];
+        }
+        for i in (1..=(self.rows-1) as usize).rev() {
+            for k in (0..=i-1).rev() {
+                let coeff = result[k as usize][i as usize];
+                for j in 0..result.cols as usize {
+                    result[k as usize][j as usize] -= result[i as usize][j as usize]*coeff;
+                }
+            }
+        }
+        let mut truncate = Matrix::new(Some(self.rows), Some(self.cols));
+        for i in 0..self.rows as usize {
+            for j in 0..self.cols as usize {
+                truncate[i][j] = result[i][j+self.cols as usize];
+            }
+        }
+        truncate
+    }    
+}
+
+impl Index<usize> for Matrix {
+    type Output = Vec<f32>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        assert!(index<self.rows as usize);
+        &self.m[index]
+    }
+}
+
+impl IndexMut<usize> for Matrix {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index<self.rows as usize);
+        &mut self.m[index]
+    }
+}
+
+impl Mul for Matrix {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        assert!(self.cols == rhs.rows);
+        let mut result = Matrix::new(Some(self.rows), Some(rhs.cols));
+        for i in 0..self.rows as usize {
+            for j in 0..rhs.cols as usize {
+                result.m[i][j] = 0.;
+                for k in 0..self.cols as usize {
+                    result.m[i][j] += self.m[i][k]*rhs.m[k][j];
+                }
+            }
+        }
+        result
     }
 }
