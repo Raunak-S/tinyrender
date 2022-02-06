@@ -14,7 +14,7 @@ impl<T> Vec2D<T> where T: num::Num {
 impl<T> Add for Vec2D<T> where T: num::Num {
     type Output = Self;
 
-    fn add(self, _rhs: Self) -> Self { 
+    fn add(self, _rhs: Self) -> Self::Output { 
         Self { 
             x: self.x+_rhs.x, 
             y: self.y+_rhs.y, 
@@ -25,7 +25,7 @@ impl<T> Add for Vec2D<T> where T: num::Num {
 impl<T> Sub for Vec2D<T> where T: num::Num {
     type Output = Self;
 
-    fn sub(self, _rhs: Self) -> Self {
+    fn sub(self, _rhs: Self) -> Self::Output {
         Self {
             x: self.x-_rhs.x,
             y: self.y-_rhs.y,
@@ -38,7 +38,7 @@ impl<T> Mul<f32> for Vec2D<T> where T: num::Num
                                         + Lossyf32 {
     type Output = Self;
 
-    fn mul(self, _rhs: f32) -> Self {
+    fn mul(self, _rhs: f32) -> Self::Output {
         Self {
             x: T::lossy_from_f32(self.x.to_f32().unwrap()*_rhs),
             y: T::lossy_from_f32(self.x.to_f32().unwrap()*_rhs),
@@ -60,19 +60,14 @@ impl<T> Vec3D<T> where T: num::Num
                         + Lossyf32 {
     pub fn new() -> Self { Self { x: num::zero(), y: num::zero(), z: num::zero(), } }
     pub fn new_args(newx: T, newy: T, newz: T) -> Self { Self { x: newx, y: newy, z: newz, } }
-    pub fn norm(&self) -> f32 { (self.x*self.x+self.y*self.y+self.z*self.z).to_f32().unwrap() }
-    pub fn normalize(&mut self) {
-        let inv_norm = 1.0/self.norm();
-        *self = Self { x: T::lossy_from_f32(self.x.to_f32().unwrap()*inv_norm),
-                       y: T::lossy_from_f32(self.y.to_f32().unwrap()*inv_norm),
-                       z: T::lossy_from_f32(self.z.to_f32().unwrap()*inv_norm), }; 
-    }
+    pub fn norm(&self) -> f32 { (self.x*self.x+self.y*self.y+self.z*self.z).to_f32().unwrap().sqrt() }
+    pub fn normalize(&mut self) { *self = (*self)*(1.0/self.norm()); }
 }
 
 impl<T> Add for Vec3D<T> where T: num::Num {
     type Output = Self;
 
-    fn add(self, _rhs: Self) -> Self { 
+    fn add(self, _rhs: Self) -> Self::Output { 
         Self { 
             x: self.x+_rhs.x, 
             y: self.y+_rhs.y,
@@ -84,7 +79,7 @@ impl<T> Add for Vec3D<T> where T: num::Num {
 impl<T> Sub for Vec3D<T> where T: num::Num {
     type Output = Self;
 
-    fn sub(self, _rhs: Self) -> Self {
+    fn sub(self, _rhs: Self) -> Self::Output {
         Self {
             x: self.x-_rhs.x,
             y: self.y-_rhs.y,
@@ -98,7 +93,7 @@ impl<T> Mul<f32> for Vec3D<T> where T: num::Num
                                     + Lossyf32 {
     type Output = Self;
 
-    fn mul(self, _rhs: f32) -> Self {
+    fn mul(self, _rhs: f32) -> Self::Output {
         Self {
             x: T::lossy_from_f32(self.x.to_f32().unwrap()*_rhs),
             y: T::lossy_from_f32(self.y.to_f32().unwrap()*_rhs),
