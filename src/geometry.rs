@@ -147,6 +147,7 @@ impl Lossyf32 for f32 {
 
 const DEFAULT_ALLOC: usize = 4;
 
+#[derive(Clone)]
 pub struct Matrix {
     m: Vec<Vec<f32>>,
     rows: i32,
@@ -165,7 +166,7 @@ impl Matrix {
     }
     pub fn nrows(&self) -> i32 { self.rows }
     pub fn ncols(&self) -> i32 { self.cols }
-    pub fn identity(&self, dimensions: i32) -> Self {
+    pub fn identity(dimensions: i32) -> Self {
         let mut E = Matrix::new(Some(dimensions), Some(dimensions));
         for i in 0..dimensions as usize {
             for j in 0..dimensions as usize {
