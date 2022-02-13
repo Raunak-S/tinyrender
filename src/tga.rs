@@ -1,9 +1,10 @@
-use crate::geometry::*;
+use crate::{geometry::*, WIDTH, model::Model};
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
 use byteorder::{ReadBytesExt, LittleEndian};
 
+#[derive(Debug)]
 struct TGAHeader {
     id_length: u8,
     color_map_type: u8,
@@ -127,12 +128,16 @@ impl TGAImage {
             image_descriptor: f.read_u8()?,
         };
 
+        println!("{:?}", header);
+
         self.width = header.width as i32;
         self.height = header.height as i32;
         self.bytespp = header.bits_per_pixel as i32 >> 3;
 
         let nbytes = self.bytespp*self.width*self.height;
         self.data = Some(Box::new(Vec::with_capacity(nbytes as usize)));
+
+        // TODO: rest of function
 
         Ok(())
     }
@@ -210,6 +215,7 @@ impl TGAImage {
             // TODO: change self.{height, width, length, ...} to usize
             let l1 = (i*bytes_per_line) as usize;
             let l2 = (self.height as usize-1-i)*bytes_per_line;
+            println!("{:?}", &self.data.as_ref().unwrap().as_slice());
             line.as_mut_slice().copy_from_slice(&self.data.as_ref().unwrap().as_slice()[l1..l1+bytes_per_line]);
             let line1 = self.data.as_mut().unwrap().as_mut_slice();
             line1.copy_within(l2..l2+bytes_per_line, l1);
@@ -256,22 +262,35 @@ pub fn line(mut x0: i32, mut y0: i32, mut x1: i32, mut y1: i32, image: &mut TGAI
     }
 }
 
-pub fn triangle(mut t0: Vec2i, mut t1: Vec2i, mut t2: Vec2i, image: &mut TGAImage, color: &TGAColor) {
+pub fn triangle(mut t0: Vec3i, mut t1: Vec3i, mut t2: Vec3i, mut uv0: Vec2i, mut uv1: Vec2i, mut uv2: Vec2i, image: &mut TGAImage, intensity: f32, zbuffer: &mut [i32], model: &Model) {
     if t0.y==t1.y && t0.y==t2.y { }
-    if t0.y>t1.y { swap(&mut t0, &mut t1); }
-    if t0.y>t2.y { swap(&mut t0, &mut t2); }
-    if t1.y>t2.y { swap(&mut t1, &mut t2); }
+    if t0.y>t1.y { swap(&mut t0, &mut t1); swap(&mut uv0, &mut uv1); }
+    if t0.y>t2.y { swap(&mut t0, &mut t2); swap(&mut uv0, &mut uv2);}
+    if t1.y>t2.y { swap(&mut t1, &mut t2); swap(&mut uv1, &mut uv2);}
+    
     let total_height = t2.y-t0.y;
     for i in 0..total_height {
         let second_half = i>t1.y-t0.y || t1.y==t0.y;
         let segment_height = if second_half { t2.y-t1.y } else { t1.y-t0.y };
-        let alpha = (i as f32/total_height as f32);
+        let alpha = i as f32/total_height as f32;
         let beta = (i-(if second_half { t1.y-t0.y } else { 0 })) as f32/segment_height as f32;
         let mut A = t0 + (t2-t0)*alpha;
         let mut B = if second_half { t1 + (t2-t1)*beta } else { t0 + (t1-t0)*beta };
-        if A.x>B.x { swap(&mut A, &mut B) }
+        let mut uvA = uv0 + (uv2-uv0)*alpha;
+        let mut uvB = if second_half { uv1 + (uv2-uv1)*beta } else { uv0 + (uv1-uv0)*beta };
+        if A.x>B.x { swap(&mut A, &mut B); swap(&mut uvA, &mut uvB); }
         for j in A.x..=B.x {
-            image.set(j, (t0.y+i) as i32, &color);
+            let phi = if B.x==A.x { 1. } else { (j-A.x) as f32/(B.x-A.x) as f32 };
+            let P = A + (B-A)*phi;
+            let uvP = uvA + (uvB-uvA)*phi;
+            let idx = (P.x+P.y*WIDTH) as usize;
+            if zbuffer[idx]<P.z {
+                zbuffer[idx] = P.z;
+                let color = model.diffuse(uvP);
+                if let ColorType::RGBA(rgba) = color.color_type {
+                    image.set(P.x, P.y, &TGAColor::new_rgba((rgba.r as f32*intensity) as u8, (rgba.g as f32*intensity) as u8, (rgba.b as f32*intensity) as u8, 255));
+                }
+            }
         }
     }
 }
