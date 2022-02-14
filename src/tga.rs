@@ -1,5 +1,5 @@
 use crate::{geometry::*, WIDTH, model::Model};
-use std::io;
+use std::io::{self, Error};
 use std::io::prelude::*;
 use std::fs::File;
 use byteorder::{ReadBytesExt, LittleEndian};
@@ -128,18 +128,91 @@ impl TGAImage {
             image_descriptor: f.read_u8()?,
         };
 
-        println!("{:?}", header);
-
         self.width = header.width as i32;
         self.height = header.height as i32;
         self.bytespp = header.bits_per_pixel as i32 >> 3;
 
         let nbytes = self.bytespp*self.width*self.height;
-        self.data = Some(Box::new(Vec::with_capacity(nbytes as usize)));
+        self.data = Some(Box::new(vec![0; nbytes as usize]));
 
-        // TODO: rest of function
+        if header.data_type_code==3 || header.data_type_code==2 {
+            todo!()
+        } else if header.data_type_code==10 || header.data_type_code==11 {
+            if !self.load_rle_data(&mut f) {
+                eprintln!("Error occured while reading the data");
+                return Err(Error::last_os_error());
+            }
+        } else {
+            todo!()
+        }
+
+        if header.image_descriptor & 0x20 == 0 {
+            self.flip_vertically();
+        } 
+        if header.image_descriptor & 0x10 != 0 {
+            self.flip_horizontally();
+        }
+
 
         Ok(())
+    }
+
+    pub fn load_rle_data(&mut self, f: &mut File) -> bool {
+        let pixelcount = (self.width*self.height) as u32;
+        let mut currentpixel = 0 as u32;
+        let mut currentbyte = 0 as u32;
+        let colorbuffer = TGAColor::new_raw(&[0; 4], self.bytespp);
+        loop {
+            let mut chunkheader = 0 as u8;
+            match f.read_u8() {
+                Ok(val) => chunkheader = val,
+                Err(e) => {
+                    eprintln!("Error occured while reading the data, {e:?}");
+                    return false;
+                },
+            }
+            if chunkheader < 128 {
+                chunkheader += 1;
+                for i in 0..chunkheader {
+                    if let ColorType::Raw(mut arr) = colorbuffer.color_type {
+                        if let Err(e) = f.read_exact(&mut  arr[0..self.bytespp as usize]) {
+                            eprintln!("Error occured while reading the data, {e:?}");
+                            return false;
+                        }
+                        for t in 0..self.bytespp {
+                            self.data.as_mut().unwrap()[currentbyte as usize] = arr[t as usize];
+                            currentbyte += 1;
+                        }
+                        currentpixel += 1;
+                        if currentpixel>pixelcount {
+                            eprintln!("Too many pixels read");
+                            return false;
+                        }
+                    }
+                }
+            } else {
+                chunkheader -= 127;
+                if let ColorType::Raw(mut arr) = colorbuffer.color_type {
+                    if let Err(e) = f.read_exact(&mut  arr[0..self.bytespp as usize]) {
+                        eprintln!("Error occured while reading the data, {e:?}");
+                        return false;
+                    }
+                    for _ in 0..chunkheader {
+                        for t in 0..self.bytespp {
+                            self.data.as_mut().unwrap()[currentbyte as usize] = arr[t as usize];
+                            currentbyte += 1;
+                        }
+                        currentpixel += 1;
+                        if currentpixel>pixelcount {
+                            eprintln!("Too many pixels read");
+                            return false;
+                        }
+                    }
+                }
+            }
+            if !(currentpixel<pixelcount) { break; }
+        }
+        true
     }
 
     pub fn write_tga_file(&self, filename: &str, rle: bool) -> io::Result<()> {
@@ -200,7 +273,7 @@ impl TGAImage {
     }
 
     pub fn get(&self, x: i32, y: i32) -> TGAColor {
-        if !self.data.is_none() || x<0 || y<0 || x>=self.width || y>=self.height { return TGAColor::new(); }
+        if self.data.is_none() || x<0 || y<0 || x>=self.width || y>=self.height { return TGAColor::new(); }
 
         let index = ((x+y*self.width)*self.bytespp) as usize;
         return TGAColor::new_raw(&self.data.as_ref().unwrap().as_slice()[index..], self.bytespp);
@@ -215,13 +288,16 @@ impl TGAImage {
             // TODO: change self.{height, width, length, ...} to usize
             let l1 = (i*bytes_per_line) as usize;
             let l2 = (self.height as usize-1-i)*bytes_per_line;
-            println!("{:?}", &self.data.as_ref().unwrap().as_slice());
             line.as_mut_slice().copy_from_slice(&self.data.as_ref().unwrap().as_slice()[l1..l1+bytes_per_line]);
             let line1 = self.data.as_mut().unwrap().as_mut_slice();
             line1.copy_within(l2..l2+bytes_per_line, l1);
             line1[l2..l2+bytes_per_line].copy_from_slice(line.as_slice());
         }
         true
+    }
+
+    pub fn flip_horizontally(&mut self) -> bool {
+        todo!()
     }
 
 }
@@ -287,8 +363,8 @@ pub fn triangle(mut t0: Vec3i, mut t1: Vec3i, mut t2: Vec3i, mut uv0: Vec2i, mut
             if zbuffer[idx]<P.z {
                 zbuffer[idx] = P.z;
                 let color = model.diffuse(uvP);
-                if let ColorType::RGBA(rgba) = color.color_type {
-                    image.set(P.x, P.y, &TGAColor::new_rgba((rgba.r as f32*intensity) as u8, (rgba.g as f32*intensity) as u8, (rgba.b as f32*intensity) as u8, 255));
+                if let ColorType::Raw(arr) = color.color_type {
+                    image.set(P.x, P.y, &TGAColor::new_rgba((arr[0] as f32*intensity) as u8, (arr[1] as f32*intensity) as u8, (arr[2] as f32*intensity) as u8, 255));
                 }
             }
         }
