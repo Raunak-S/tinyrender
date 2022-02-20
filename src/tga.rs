@@ -1,8 +1,9 @@
-use crate::{geometry::*, WIDTH, model::Model};
-use std::io::{self, Error};
-use std::io::prelude::*;
+use crate::{geometry::*, model::Model, WIDTH};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
-use byteorder::{ReadBytesExt, LittleEndian};
+use std::io::prelude::*;
+use std::io::{self, Error};
+use std::ops::Mul;
 
 #[derive(Debug)]
 struct TGAHeader {
@@ -39,36 +40,51 @@ impl TGAHeader {
     }
 }
 
-
-struct RGBA {
+#[derive(Debug)]
+pub struct RGBA {
     r: u8,
     g: u8,
     b: u8,
     a: u8,
 }
 
-enum ColorType {
+#[derive(Debug)]
+pub enum ColorType {
     RGBA(RGBA),
     Raw([u8; 4]),
     Val(u32),
 }
 
 pub struct TGAColor {
-    color_type: ColorType,
-    bytespp: i32,
+    pub color_type: ColorType,
+    pub bytespp: i32,
 }
 
 impl TGAColor {
     pub fn new() -> Self {
-        Self { color_type: ColorType::Val(0), bytespp: 1, }
+        Self {
+            color_type: ColorType::Val(0),
+            bytespp: 1,
+        }
     }
 
     pub fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { color_type: ColorType::RGBA(RGBA { r: r, g: g, b: b, a: a, }), bytespp: 4, }
+        Self {
+            color_type: ColorType::RGBA(RGBA {
+                r: r,
+                g: g,
+                b: b,
+                a: a,
+            }),
+            bytespp: 4,
+        }
     }
 
     pub fn new_val(v: u32, bpp: i32) -> Self {
-        Self { color_type: ColorType::Val(v), bytespp: bpp, }
+        Self {
+            color_type: ColorType::Val(v),
+            bytespp: bpp,
+        }
     }
 
     pub fn new_raw(p: &[u8], bpp: i32) -> Self {
@@ -76,7 +92,35 @@ impl TGAColor {
         for i in 0..bpp as usize {
             raw[i] = p[i];
         }
-        Self { color_type: ColorType::Raw(raw), bytespp: bpp, }
+        Self {
+            color_type: ColorType::Raw(raw),
+            bytespp: bpp,
+        }
+    }
+}
+
+impl Mul<f32> for TGAColor {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        let rhs = if rhs > 1. {
+            1.
+        } else {
+            if rhs < 0. {
+                0.
+            } else {
+                rhs
+            }
+        };
+        match self.color_type {
+            ColorType::RGBA(rgba) => TGAColor::new_rgba(
+                (rgba.r as f32 * rhs) as u8,
+                (rgba.g as f32 * rhs) as u8,
+                (rgba.b as f32 * rhs) as u8,
+                (rgba.a as f32 * rhs) as u8,
+            ),
+            _ => TGAColor::new(),
+        }
     }
 }
 
@@ -101,13 +145,23 @@ pub struct TGAImage {
 
 impl TGAImage {
     pub fn new() -> Self {
-        Self { data: None, width: 0, height: 0, bytespp: 0, }
+        Self {
+            data: None,
+            width: 0,
+            height: 0,
+            bytespp: 0,
+        }
     }
 
     pub fn new_dimensions(w: i32, h: i32, bpp: i32) -> Self {
-        let nbytes = w*h*bpp;
+        let nbytes = w * h * bpp;
         let data = vec![0; nbytes as usize];
-        Self { data: Some(Box::new(data)), width: w, height: h, bytespp: bpp, }
+        Self {
+            data: Some(Box::new(data)),
+            width: w,
+            height: h,
+            bytespp: bpp,
+        }
     }
 
     pub fn read_tga_file(&mut self, filename: &str) -> io::Result<()> {
@@ -132,12 +186,12 @@ impl TGAImage {
         self.height = header.height as i32;
         self.bytespp = header.bits_per_pixel as i32 >> 3;
 
-        let nbytes = self.bytespp*self.width*self.height;
+        let nbytes = self.bytespp * self.width * self.height;
         self.data = Some(Box::new(vec![0; nbytes as usize]));
 
-        if header.data_type_code==3 || header.data_type_code==2 {
+        if header.data_type_code == 3 || header.data_type_code == 2 {
             todo!()
-        } else if header.data_type_code==10 || header.data_type_code==11 {
+        } else if header.data_type_code == 10 || header.data_type_code == 11 {
             if !self.load_rle_data(&mut f) {
                 eprintln!("Error occured while reading the data");
                 return Err(Error::last_os_error());
@@ -148,17 +202,16 @@ impl TGAImage {
 
         if header.image_descriptor & 0x20 == 0 {
             self.flip_vertically();
-        } 
+        }
         if header.image_descriptor & 0x10 != 0 {
             self.flip_horizontally();
         }
-
 
         Ok(())
     }
 
     pub fn load_rle_data(&mut self, f: &mut File) -> bool {
-        let pixelcount = (self.width*self.height) as u32;
+        let pixelcount = (self.width * self.height) as u32;
         let mut currentpixel = 0 as u32;
         let mut currentbyte = 0 as u32;
         let colorbuffer = TGAColor::new_raw(&[0; 4], self.bytespp);
@@ -169,13 +222,13 @@ impl TGAImage {
                 Err(e) => {
                     eprintln!("Error occured while reading the data, {e:?}");
                     return false;
-                },
+                }
             }
             if chunkheader < 128 {
                 chunkheader += 1;
                 for i in 0..chunkheader {
                     if let ColorType::Raw(mut arr) = colorbuffer.color_type {
-                        if let Err(e) = f.read_exact(&mut  arr[0..self.bytespp as usize]) {
+                        if let Err(e) = f.read_exact(&mut arr[0..self.bytespp as usize]) {
                             eprintln!("Error occured while reading the data, {e:?}");
                             return false;
                         }
@@ -184,7 +237,7 @@ impl TGAImage {
                             currentbyte += 1;
                         }
                         currentpixel += 1;
-                        if currentpixel>pixelcount {
+                        if currentpixel > pixelcount {
                             eprintln!("Too many pixels read");
                             return false;
                         }
@@ -193,7 +246,7 @@ impl TGAImage {
             } else {
                 chunkheader -= 127;
                 if let ColorType::Raw(mut arr) = colorbuffer.color_type {
-                    if let Err(e) = f.read_exact(&mut  arr[0..self.bytespp as usize]) {
+                    if let Err(e) = f.read_exact(&mut arr[0..self.bytespp as usize]) {
                         eprintln!("Error occured while reading the data, {e:?}");
                         return false;
                     }
@@ -203,14 +256,16 @@ impl TGAImage {
                             currentbyte += 1;
                         }
                         currentpixel += 1;
-                        if currentpixel>pixelcount {
+                        if currentpixel > pixelcount {
                             eprintln!("Too many pixels read");
                             return false;
                         }
                     }
                 }
             }
-            if !(currentpixel<pixelcount) { break; }
+            if !(currentpixel < pixelcount) {
+                break;
+            }
         }
         true
     }
@@ -219,14 +274,29 @@ impl TGAImage {
         let developer_area_ref: [u8; 4] = [0, 0, 0, 0];
         let extension_area_ref: [u8; 4] = [0, 0, 0, 0];
 
-        let mut footer: &[char] = &['T','R','U','E','V','I','S','I','O','N','-','X','F','I','L','E','.','\0'];
+        let mut footer: &[char] = &[
+            'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.',
+            '\0',
+        ];
 
         let mut out = File::create(filename)?;
         let mut header = TGAHeader::new();
         header.bits_per_pixel = (self.bytespp as u8) << 3;
         header.width = self.width as u16;
         header.height = self.height as u16;
-        header.data_type_code = if self.bytespp==TGAFormat.Grayscale as i32 { if rle {11} else {3} } else { if rle {10} else {2} };
+        header.data_type_code = if self.bytespp == TGAFormat.Grayscale as i32 {
+            if rle {
+                11
+            } else {
+                3
+            }
+        } else {
+            if rle {
+                10
+            } else {
+                2
+            }
+        };
         header.image_descriptor = 0x20;
 
         out.write(&header.id_length.to_le_bytes())?;
@@ -259,39 +329,50 @@ impl TGAImage {
         self.height
     }
 
-    pub fn set(&mut self, x: i32, y:i32, c: &TGAColor) -> bool {
-        if self.data.is_none() || x<0 || y<0 || x>=self.width || y>=self.height { return false; }
-        let index = ((x+y*self.width)*self.bytespp) as usize;
+    pub fn set(&mut self, x: i32, y: i32, c: &TGAColor) -> bool {
+        if self.data.is_none() || x < 0 || y < 0 || x >= self.width || y >= self.height {
+            return false;
+        }
+        let index = ((x + y * self.width) * self.bytespp) as usize;
         match &c.color_type {
             ColorType::RGBA(buf) => {
-                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()[index..index+self.bytespp as usize];
+                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
+                    [index..index + self.bytespp as usize];
                 ptr.copy_from_slice(&[buf.b, buf.g, buf.r]);
-            },
-            _ => println!("Nothing here")
+            }
+            _ => println!("Nothing here"),
         }
         true
     }
 
     pub fn get(&self, x: i32, y: i32) -> TGAColor {
-        if self.data.is_none() || x<0 || y<0 || x>=self.width || y>=self.height { return TGAColor::new(); }
+        if self.data.is_none() || x < 0 || y < 0 || x >= self.width || y >= self.height {
+            return TGAColor::new();
+        }
 
-        let index = ((x+y*self.width)*self.bytespp) as usize;
-        return TGAColor::new_raw(&self.data.as_ref().unwrap().as_slice()[index..], self.bytespp);
+        let index = ((x + y * self.width) * self.bytespp) as usize;
+        return TGAColor::new_raw(
+            &self.data.as_ref().unwrap().as_slice()[index..index + self.bytespp as usize],
+            self.bytespp,
+        );
     }
 
     pub fn flip_vertically(&mut self) -> bool {
-        if self.data.is_none() { return false; }
-        let bytes_per_line = (self.width*self.bytespp) as usize;
+        if self.data.is_none() {
+            return false;
+        }
+        let bytes_per_line = (self.width * self.bytespp) as usize;
         let mut line = vec![0; bytes_per_line];
-        let half = self.height>>1;
+        let half = self.height >> 1;
         for i in 0..half as usize {
             // TODO: change self.{height, width, length, ...} to usize
-            let l1 = (i*bytes_per_line) as usize;
-            let l2 = (self.height as usize-1-i)*bytes_per_line;
-            line.as_mut_slice().copy_from_slice(&self.data.as_ref().unwrap().as_slice()[l1..l1+bytes_per_line]);
+            let l1 = (i * bytes_per_line) as usize;
+            let l2 = (self.height as usize - 1 - i) * bytes_per_line;
+            line.as_mut_slice()
+                .copy_from_slice(&self.data.as_ref().unwrap().as_slice()[l1..l1 + bytes_per_line]);
             let line1 = self.data.as_mut().unwrap().as_mut_slice();
-            line1.copy_within(l2..l2+bytes_per_line, l1);
-            line1[l2..l2+bytes_per_line].copy_from_slice(line.as_slice());
+            line1.copy_within(l2..l2 + bytes_per_line, l1);
+            line1[l2..l2 + bytes_per_line].copy_from_slice(line.as_slice());
         }
         true
     }
@@ -299,32 +380,38 @@ impl TGAImage {
     pub fn flip_horizontally(&mut self) -> bool {
         todo!()
     }
-
 }
 
-fn swap<T: Clone>(a: &mut T, b: &mut T) {
+pub fn swap<T: Clone>(a: &mut T, b: &mut T) {
     let tmp = a.clone();
     *a = b.clone();
     *b = tmp;
 }
 
-pub fn line(mut x0: i32, mut y0: i32, mut x1: i32, mut y1: i32, image: &mut TGAImage, color: &TGAColor) {
+pub fn line(
+    mut x0: i32,
+    mut y0: i32,
+    mut x1: i32,
+    mut y1: i32,
+    image: &mut TGAImage,
+    color: &TGAColor,
+) {
     let mut steep = false;
-    if (x0-x1).abs()<(y0-y1).abs() {
+    if (x0 - x1).abs() < (y0 - y1).abs() {
         swap(&mut x0, &mut y0);
         swap(&mut x1, &mut y1);
         steep = true;
     }
-    if x0>x1 {
+    if x0 > x1 {
         swap(&mut x0, &mut x1);
         swap(&mut y0, &mut y1);
     }
-    let dx = x1-x0;
-    let dy = y1-y0;
-    let derror2 = dy.abs()*2;
+    let dx = x1 - x0;
+    let dy = y1 - y0;
+    let derror2 = dy.abs() * 2;
     let mut error2 = 0;
     let mut y = y0;
-    for x in x0..x1+1 {
+    for x in x0..x1 + 1 {
         if steep {
             image.set(y, x, color);
         } else {
@@ -332,46 +419,36 @@ pub fn line(mut x0: i32, mut y0: i32, mut x1: i32, mut y1: i32, image: &mut TGAI
         }
         error2 += derror2;
         if error2 > dx {
-            y += if y1>y0 { 1 } else { -1 };
-            error2 -= dx*2;
+            y += if y1 > y0 { 1 } else { -1 };
+            error2 -= dx * 2;
         }
     }
 }
 
-pub fn triangle(mut t0: Vec3i, mut t1: Vec3i, mut t2: Vec3i, mut uv0: Vec2i, mut uv1: Vec2i, mut uv2: Vec2i, image: &mut TGAImage, intensity: f32, zbuffer: &mut [i32], model: &Model) {
-    if t0.y==t1.y && t0.y==t2.y { }
-    if t0.y>t1.y { swap(&mut t0, &mut t1); swap(&mut uv0, &mut uv1); }
-    if t0.y>t2.y { swap(&mut t0, &mut t2); swap(&mut uv0, &mut uv2);}
-    if t1.y>t2.y { swap(&mut t1, &mut t2); swap(&mut uv1, &mut uv2);}
-    
-    let total_height = t2.y-t0.y;
-    for i in 0..total_height {
-        let second_half = i>t1.y-t0.y || t1.y==t0.y;
-        let segment_height = if second_half { t2.y-t1.y } else { t1.y-t0.y };
-        let alpha = i as f32/total_height as f32;
-        let beta = (i-(if second_half { t1.y-t0.y } else { 0 })) as f32/segment_height as f32;
-        let mut A = t0 + (t2-t0)*alpha;
-        let mut B = if second_half { t1 + (t2-t1)*beta } else { t0 + (t1-t0)*beta };
-        let mut uvA = uv0 + (uv2-uv0)*alpha;
-        let mut uvB = if second_half { uv1 + (uv2-uv1)*beta } else { uv0 + (uv1-uv0)*beta };
-        if A.x>B.x { swap(&mut A, &mut B); swap(&mut uvA, &mut uvB); }
-        for j in A.x..=B.x {
-            let phi = if B.x==A.x { 1. } else { (j-A.x) as f32/(B.x-A.x) as f32 };
-            let P = A + (B-A)*phi;
-            let uvP = uvA + (uvB-uvA)*phi;
-            let idx = (P.x+P.y*WIDTH) as usize;
-            if zbuffer[idx]<P.z {
-                zbuffer[idx] = P.z;
-                let color = model.diffuse(uvP);
-                if let ColorType::Raw(arr) = color.color_type {
-                    image.set(P.x, P.y, &TGAColor::new_rgba((arr[0] as f32*intensity) as u8, (arr[1] as f32*intensity) as u8, (arr[2] as f32*intensity) as u8, 255));
-                }
-            }
-        }
-    }
-}
-
-
-pub const WHITE: TGAColor = TGAColor { color_type: ColorType::RGBA(RGBA { r: 255, g: 255, b: 255, a: 255, }), bytespp: 4 };
-pub const RED: TGAColor = TGAColor { color_type: ColorType::RGBA(RGBA { r: 255, g: 0, b: 0, a: 255, }), bytespp: 4 };
-pub const GREEN: TGAColor = TGAColor { color_type: ColorType::RGBA(RGBA { r: 0, g: 255, b: 0, a: 255, }), bytespp: 4 };
+pub const WHITE: TGAColor = TGAColor {
+    color_type: ColorType::RGBA(RGBA {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255,
+    }),
+    bytespp: 4,
+};
+pub const RED: TGAColor = TGAColor {
+    color_type: ColorType::RGBA(RGBA {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    }),
+    bytespp: 4,
+};
+pub const GREEN: TGAColor = TGAColor {
+    color_type: ColorType::RGBA(RGBA {
+        r: 0,
+        g: 255,
+        b: 0,
+        a: 255,
+    }),
+    bytespp: 4,
+};
