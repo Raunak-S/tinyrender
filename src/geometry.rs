@@ -1,4 +1,4 @@
-use std::ops::{Add, BitXor, Index, IndexMut, Mul, Sub};
+use std::ops::{Add, BitXor, Index, IndexMut, Mul, Sub, Div};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec2D<T>
@@ -66,6 +66,30 @@ where
     }
 }
 
+impl<T: num::Num> Index<usize> for Vec2D<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        assert!(index < 2);
+        if index == 0 {
+            &self.x
+        } else {
+            &self.y
+        }
+    }
+}
+
+impl<T: num::Num> IndexMut<usize> for Vec2D<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index < 2);
+        if index == 0 {
+            &mut self.x
+        } else {
+            &mut self.y
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Vec3D<T>
 where
@@ -96,6 +120,9 @@ where
     }
     pub fn from_matrix(m: Matrix) -> Vec3f {
         Vec3f::new_args(m[0][0] / m[3][0], m[1][0] / m[3][0], m[2][0] / m[3][0])
+    }
+    pub fn from_slice(s: &[f32; 3]) -> Vec3f {
+        Vec3f::new_args(s[0], s[1], s[2])
     }
     pub fn norm(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z)
@@ -223,6 +250,21 @@ where
                 &self.y
             } else {
                 &self.z
+            }
+        }
+    }
+}
+
+impl<T: num::Num> IndexMut<usize> for Vec3D<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index < 3);
+        if index == 0 {
+            &mut self.x
+        } else {
+            if index == 1 {
+                &mut self.y
+            } else {
+                &mut self.z
             }
         }
     }
@@ -384,5 +426,119 @@ impl Mul for Matrix {
             }
         }
         result
+    }
+}
+
+impl Mul<Vec4f> for Matrix {
+    type Output = Vec4f;
+
+    fn mul(self, rhs: Vec4f) -> Self::Output {
+        let mut ret = Vec4f::new();
+        for i in 0..self.rows as usize {
+            for j in 0..self.cols as usize {
+                ret[i] += self[i][j]*rhs[j];
+            }
+        }
+        ret
+    }
+}
+
+
+pub fn cross<T: num::Num + Copy>(v1: Vec3D<T>, v2: Vec3D<T>) -> Vec3D<T> {
+    Vec3D {
+        x: v1.y * v2.z - v1.z * v2.y,
+        y: v1.z * v2.x - v1.x * v2.z,
+        z: v1.x * v2.y - v1.y * v2.x,
+    }
+}
+
+pub fn embed(v: &Vec3f) -> Vec4f {
+    let fill = 1.;
+    let mut ret = Vec4f::new();
+    for i in (0..4).rev() {
+        ret[i] = if i<3 { v[i] } else { fill };
+    }
+    ret
+}
+
+pub fn proj(v: Vec4f) -> Vec2f {
+    let mut ret = Vec2f::new();
+    for i in (0..2).rev() {
+        ret[i] = v[i];
+    }
+    ret
+}
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct Vec4D<T>
+where
+    T: num::Num,
+{
+    pub x: T,
+    pub y: T,
+    pub z: T,
+    pub a: T,
+}
+
+pub type Vec4f = Vec4D<f32>;
+
+impl Vec4f {
+    pub fn new() -> Self {
+        Self { x: 0., y: 0., z: 0., a: 0. }
+    }
+}
+
+impl<T: num::Num> Div<f32> for Vec4D<T>
+where
+    T: num::Num + num::NumCast + Lossyf32, 
+{
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self { x: T::lossy_from_f32(self.x.to_f32().unwrap()/rhs), 
+            y: T::lossy_from_f32(self.y.to_f32().unwrap()/rhs), 
+            z: T::lossy_from_f32(self.z.to_f32().unwrap()/rhs), 
+            a: T::lossy_from_f32(self.a.to_f32().unwrap()/rhs) }
+    }
+}
+
+impl<T: num::Num> Index<usize> for Vec4D<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        assert!(index < 4);
+        if index == 0 {
+            &self.x
+        } else {
+            if index == 1 {
+                &self.y
+            } else {
+                if index == 2 {
+                    &self.z
+                } else {
+                    &self.a
+                }
+            }
+        }
+    }
+}
+
+impl<T: num::Num> IndexMut<usize> for Vec4D<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        assert!(index < 4);
+        if index == 0 {
+            &mut self.x
+        } else {
+            if index == 1 {
+                &mut self.y
+            } else {
+                if index == 2 {
+                    &mut self.z
+                } else {
+                    &mut self.a
+                }
+            }
+        }
     }
 }

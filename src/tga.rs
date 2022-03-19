@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, Error};
-use std::ops::Mul;
+use std::ops::{Mul, Index};
 
 #[derive(Debug)]
 struct TGAHeader {
@@ -95,6 +95,17 @@ impl TGAColor {
         Self {
             color_type: ColorType::Raw(raw),
             bytespp: bpp,
+        }
+    }
+}
+
+impl Index<usize> for TGAColor {
+    type Output = u8;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match self.color_type {
+            ColorType::Raw(ref arr) => &arr[index],
+            _ => &0,
         }
     }
 }
@@ -339,7 +350,12 @@ impl TGAImage {
                 let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
                     [index..index + self.bytespp as usize];
                 ptr.copy_from_slice(&[buf.b, buf.g, buf.r]);
-            }
+            },
+            ColorType::Val(val) => {
+                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
+                [index..index + self.bytespp as usize];
+            ptr.copy_from_slice(&[*val as u8]);
+            },
             _ => println!("Nothing here"),
         }
         true
