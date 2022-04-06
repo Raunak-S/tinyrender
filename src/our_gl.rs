@@ -1,16 +1,16 @@
 use obj::Obj;
 
-use crate::{geometry::*, tga::*, model::Model};
+use crate::{geometry::*, tga::*, model::Model, DEPTH};
 
 pub fn viewport(x: i32, y: i32, w: i32, h: i32) -> Matrix {
     let mut m = Matrix::identity(4);
     m[0][3] = (x + w) as f32 / 2.;
     m[1][3] = (y + h) as f32 / 2.;
-    m[2][3] = 255. / 2.;
+    m[2][3] = DEPTH / 2.;
 
     m[0][0] = w as f32 / 2.;
     m[1][1] = h as f32 / 2.;
-    m[2][2] = 255. / 2.;
+    m[2][2] = DEPTH / 2.;
     m
 }
 
@@ -55,12 +55,12 @@ pub struct ViewBundle {
     pub Projection: Matrix,
 }
 
-pub trait Shader {
-    fn vertex(&mut self, iface: i32, nthvert: i32, model: &Obj, light_dir: Vec3f, view_bundle: &ViewBundle) -> Vec4f;
-    fn fragment(&self, bar: Vec3f) -> (bool, TGAColor);
+pub trait IShader {
+    fn vertex(&mut self, iface: i32, nthvert: i32, model: &Model, light_dir: Vec3f, view_bundle: &ViewBundle) -> Vec4f;
+    fn fragment(&self, bar: Vec3f, model: &Model, shadowbuffer: &[f32], light_dir: &Vec3f) -> (bool, TGAColor);
 }
 
-pub fn triangle(pts: &[Vec4f], shader: &impl Shader, image: &mut TGAImage, zbuffer: &mut TGAImage) {
+pub fn triangle(pts: &[Vec4f], shader: &impl IShader, image: &mut TGAImage, zbuffer: &mut [f32], model: &Model, shadowbuffer: Option<&[f32]>, light_dir: &Vec3D<f32>) {
     let mut bboxmin = Vec2f::new_args(f32::MAX, f32::MAX);
     let mut bboxmax = Vec2f::new_args(f32::MIN, f32::MIN);
     for i in 0..3 {
@@ -80,11 +80,19 @@ pub fn triangle(pts: &[Vec4f], shader: &impl Shader, image: &mut TGAImage, zbuff
             let c = barycentric(proj(pts[0]/pts[0][3]), proj(pts[1]/pts[1][3]), proj(pts[2]/pts[2][3]), proj(proj_P));
             let z = pts[0][2]*c.x + pts[1][2]*c.y + pts[2][2]*c.z;
             let w = pts[0][3]*c.x + pts[1][3]*c.y + pts[2][3]*c.z;
-            let frag_depth = std::cmp::max(0, std::cmp::min(255, (z/w+0.5) as i32)) as u8;
-            if c.x<0. || c.y<0. || c.z<0. || zbuffer.get(P.x, P.y)[0] as i32>frag_depth.into() { continue; }
-            let (discard, color) = shader.fragment(c);
+            let frag_depth = z/w;
+            if j<0 {
+                println!("{P:?}  -----  {}   -------- {}   ---------- {:?}", image.get_width(), image.get_width()*P.y+P.x, c);
+
+            }
+            // TODO: Remove j<0, figure out why it panic occurs without j<0 condition
+            if c.x<0. || c.y<0. || c.z<0. || j<0 || zbuffer[(P.x+P.y*image.get_width()) as usize]>frag_depth { continue; }
+            let (discard, color) = match shadowbuffer {
+                Some(shadowbuffer) => shader.fragment(c, &model, shadowbuffer, &light_dir),
+                None => shader.fragment(c, &model, zbuffer, &light_dir)
+            };
             if !discard {
-                zbuffer.set(P.x, P.y, &TGAColor::new_val(frag_depth as u32, 1));
+                zbuffer[(P.x+P.y*image.get_width()) as usize] = frag_depth;
                 image.set(P.x, P.y, &color);
             }
         }

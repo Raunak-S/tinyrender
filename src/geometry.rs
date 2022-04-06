@@ -11,7 +11,7 @@ where
 
 impl<T> Vec2D<T>
 where
-    T: num::Num,
+    T: num::Num + Copy
 {
     pub fn new() -> Self {
         Self {
@@ -21,6 +21,10 @@ where
     }
     pub fn new_args(newx: T, newy: T) -> Self {
         Self { x: newx, y: newy }
+    }
+
+    pub fn from_vec(v: &Vec<T>) -> Self {
+        Self { x: v[0], y: v[1] }
     }
 }
 
@@ -123,6 +127,9 @@ where
     }
     pub fn from_slice(s: &[f32; 3]) -> Vec3f {
         Vec3f::new_args(s[0], s[1], s[2])
+    }
+    pub fn from_vec(v: &Vec<T>) -> Self {
+        Self { x: v[0], y: v[1], z: v[2] }
     }
     pub fn norm(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z)
@@ -332,6 +339,12 @@ impl Matrix {
     pub fn ncols(&self) -> i32 {
         self.cols
     }
+    pub fn set_col(&mut self, idx: i32, v: &Vec<f32>) {
+        assert!(idx<self.cols);
+        for i in 0..self.rows as usize {
+            self.m[i][idx as usize] = v[i];
+        }
+    }
     pub fn identity(dimensions: i32) -> Self {
         let mut E = Matrix::new(Some(dimensions), Some(dimensions));
         for i in 0..dimensions as usize {
@@ -393,7 +406,48 @@ impl Matrix {
         }
         truncate
     }
+    pub fn det(&self) -> f32 {
+        if self.rows == 1 && self.cols == 1 {
+            return self.m[0][0]
+        }
+        let mut ret = 0f32;
+        for i in 0..self.rows {
+            ret += self.m[0][i as usize]*self.cofactor(0, i);
+        }
+        ret
+    }
+    pub fn get_minor(&self, row: i32, col: i32) -> Matrix {
+        let mut ret = Matrix::new(Some(self.rows-1), Some(self.cols-1));
+        for i in 0..self.rows-1 {
+            for j in 0..self.cols-1 {
+                ret[i as usize][j as usize] = self.m[if i<self.rows {i as usize} else {i as usize+1}][if j<self.cols {j as usize} else {j as usize+1}];
+            }
+        }
+        ret
+    }
+    pub fn cofactor(&self, row: i32, col: i32) -> f32 {
+        self.get_minor(row,col).det()*(if (row+col)%2!=0 { -1. } else { 1. })
+    }
+    pub fn adjugate(&self) -> Matrix {
+        let mut ret = Matrix::new(Some(self.rows), Some(self.cols));
+        for i in 0..self.rows {
+            for j in 0..self.cols {
+                ret[i as usize][j as usize] = self.cofactor(i, j);
+            }
+        }
+        ret
+    }
+    pub fn invert_transpose(&self) -> Matrix {
+        let ret = self.adjugate();
+        let tmp = Vec3f::from_vec(&ret[0])*Vec3f::from_vec(&self.m[0]);
+        ret/tmp
+    }
+    pub fn invert(&self) -> Matrix {
+        self.invert_transpose().transpose()
+    }
 }
+
+
 
 impl Index<usize> for Matrix {
     type Output = Vec<f32>;
@@ -443,6 +497,35 @@ impl Mul<Vec4f> for Matrix {
     }
 }
 
+impl Mul<Vec<f32>> for Matrix {
+    type Output = Vec<f32>;
+
+    fn mul(self, rhs: Vec<f32>) -> Self::Output {
+        let mut ret = Vec::new();
+        for i in 0..self.rows as usize {
+            let mut ret_val = 0.;
+            for j in 0..self.cols as usize {
+                ret_val += self[i][j]*rhs[j];
+            }
+            ret.push(ret_val);
+        }
+        ret
+    }
+}
+
+impl Div<f32> for Matrix {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        let mut ret = Matrix::new(Some(self.rows), Some(self.cols));
+        for i in 0..self.rows as usize {
+            for j in 0..self.cols as usize {
+                ret[i][j] = self.m[i][j]/rhs;
+            }
+        }
+        ret
+    }
+}
 
 pub fn cross<T: num::Num + Copy>(v1: Vec3D<T>, v2: Vec3D<T>) -> Vec3D<T> {
     Vec3D {
@@ -469,6 +552,14 @@ pub fn proj(v: Vec4f) -> Vec2f {
     ret
 }
 
+pub fn proj_refactor<T: Copy>(v: Vec<T>, len: usize) -> Vec<T> {
+    let mut ret: Vec<T> = vec![];
+    for i in 0..len {
+        ret.push(v[i]);
+    }
+    ret
+}
+
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec4D<T>
@@ -486,6 +577,12 @@ pub type Vec4f = Vec4D<f32>;
 impl Vec4f {
     pub fn new() -> Self {
         Self { x: 0., y: 0., z: 0., a: 0. }
+    }
+}
+
+impl<T: num::Num> Into<Vec<T>> for Vec4D<T> {
+    fn into(self) -> Vec<T> {
+        vec![self.x, self.y, self.z, self.a]
     }
 }
 

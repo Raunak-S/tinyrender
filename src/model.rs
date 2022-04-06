@@ -1,7 +1,7 @@
 use obj::Obj;
 
 use crate::{
-    geometry::{Vec2i, Vec3f},
+    geometry::{Vec2i, Vec2f, Vec3f},
     tga::{TGAColor, TGAImage},
 };
 
@@ -15,16 +15,24 @@ use crate::{
 pub struct Model {
     obj: Obj,
     diffusemap: TGAImage,
+    normalmap: TGAImage,
+    specularmap: TGAImage
 }
 
 impl Model {
     pub fn new_args(filename: &str) -> Self {
         let mut diffusemap = TGAImage::new();
+        let mut normalmap = TGAImage::new();
+        let mut specularmap = TGAImage::new();
         let model = Obj::load(filename).unwrap();
         Model::load_texture(&String::from(filename), "_diffuse.tga", &mut diffusemap);
+        Model::load_texture(&String::from(filename), "_nm.tga", &mut normalmap);
+        Model::load_texture(&String::from(filename), "_spec.tga", &mut specularmap);
         Self {
             obj: model,
             diffusemap: diffusemap,
+            normalmap: normalmap,
+            specularmap: specularmap,
         }
     }
 
@@ -49,19 +57,20 @@ impl Model {
         }
     }
 
-    pub fn diffuse(&self, uv: Vec2i) -> TGAColor {
-        self.diffusemap.get(uv.x, uv.y)
+    pub fn diffuse(&self, uvf: &Vec2f) -> TGAColor {
+        let uv = Vec2i::new_args((uvf[0]*self.diffusemap.get_width() as f32) as i32, (uvf[1]*self.diffusemap.get_height() as f32) as i32);
+        self.diffusemap.get(uv[0], uv[1])
     }
-
-    pub fn uv(&self, iface: i32, nvert: i32) -> Vec2i {
-        let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nvert as usize]
+    pub fn vert(&self, iface: i32, nthvert: i32) -> Vec3f {
+        let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nthvert as usize].0;
+        Vec3f::from_slice(&self.obj.data.position[idx])
+    }
+    pub fn uv(&self, iface: i32, nthvert: i32) -> Vec2f {
+        let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nthvert as usize]
             .1
             .unwrap();
 
-        Vec2i::new_args(
-            (self.obj.data.texture[idx][0] * self.diffusemap.get_width() as f32) as i32,
-            (self.obj.data.texture[idx][1] * self.diffusemap.get_height() as f32) as i32,
-        )
+        Vec2f::new_args(self.obj.data.texture[idx][0], self.obj.data.texture[idx][1])
     }
     pub fn norm(&self, iface: i32, nvert: i32) -> Vec3f {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nvert as usize]
@@ -69,5 +78,19 @@ impl Model {
             .unwrap();
         let norm = self.obj.data.normal[idx];
         Vec3f::new_args(norm[0], norm[1], norm[2])
+    }
+    pub fn normal(&self, uvf: &Vec2f) -> Vec3f {
+        let uv = Vec2i::new_args((uvf[0]*self.normalmap.get_width() as f32) as i32, (uvf[1]*self.normalmap.get_height() as f32) as i32);
+        let c = self.normalmap.get(uv[0], uv[1]);
+        let mut res = Vec3f::new();
+        for i in 0..3 {
+            res[2-i] = c[i] as f32/255.*2.-1.;
+        }
+        res
+    }
+
+    pub fn specular(&self, uvf: &Vec2f) -> f32 {
+        let uv = Vec2i::new_args((uvf[0]*self.specularmap.get_width() as f32) as i32, (uvf[1]*self.specularmap.get_height() as f32) as i32);
+        self.specularmap.get(uv[0], uv[1])[0] as f32/1.
     }
 }

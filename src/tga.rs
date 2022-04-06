@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, Error};
-use std::ops::{Mul, Index};
+use std::ops::{Mul, Index, IndexMut};
 
 #[derive(Debug)]
 struct TGAHeader {
@@ -106,6 +106,31 @@ impl Index<usize> for TGAColor {
         match self.color_type {
             ColorType::Raw(ref arr) => &arr[index],
             _ => &0,
+        }
+    }
+}
+
+impl IndexMut<usize> for TGAColor {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match self.color_type {
+            ColorType::Raw(ref mut arr) => &mut arr[index],
+            ColorType::RGBA(ref mut rgba) => {
+                if index == 0 {
+                    return &mut rgba.r;
+                } else {
+                    if index == 1 {
+                        return &mut rgba.g;
+                    } else {
+                        if index == 2 {
+                            return &mut rgba.b;
+                    } else {
+                        return &mut rgba.a;
+                    }
+                }
+            }
+            },
+            _ => {eprintln!("{:?}", self.color_type);
+                panic!()},
         }
     }
 }
