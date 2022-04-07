@@ -2,7 +2,7 @@ use obj::Obj;
 
 use crate::{
     geometry::{Vec2i, Vec2f, Vec3f},
-    tga::{TGAColor, TGAImage},
+    tga::{TGAImage},
 };
 
 /*
@@ -53,13 +53,12 @@ impl Model {
                     "failed"
                 }
             );
-            img.flip_vertically();
+            //img.flip_vertically();
         }
     }
 
-    pub fn diffuse(&self, uvf: &Vec2f) -> TGAColor {
-        let uv = Vec2i::new_args((uvf[0]*self.diffusemap.get_width() as f32) as i32, (uvf[1]*self.diffusemap.get_height() as f32) as i32);
-        self.diffusemap.get(uv[0], uv[1])
+    pub fn nfaces(&self) -> usize {
+        self.obj.data.objects[0].groups[0].polys.len()
     }
     pub fn vert(&self, iface: i32, nthvert: i32) -> Vec3f {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nthvert as usize].0;
@@ -70,14 +69,14 @@ impl Model {
             .1
             .unwrap();
 
-        Vec2f::new_args(self.obj.data.texture[idx][0], self.obj.data.texture[idx][1])
+        Vec2f::new_args(self.obj.data.texture[idx][0], 1.-self.obj.data.texture[idx][1])
     }
     pub fn norm(&self, iface: i32, nvert: i32) -> Vec3f {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nvert as usize]
             .2
             .unwrap();
         let norm = self.obj.data.normal[idx];
-        Vec3f::new_args(norm[0], norm[1], norm[2])
+        Vec3f::new_args(norm[0], norm[1], norm[2]).normalize().to_owned()
     }
     pub fn normal(&self, uvf: &Vec2f) -> Vec3f {
         let uv = Vec2i::new_args((uvf[0]*self.normalmap.get_width() as f32) as i32, (uvf[1]*self.normalmap.get_height() as f32) as i32);
@@ -89,8 +88,10 @@ impl Model {
         res
     }
 
-    pub fn specular(&self, uvf: &Vec2f) -> f32 {
-        let uv = Vec2i::new_args((uvf[0]*self.specularmap.get_width() as f32) as i32, (uvf[1]*self.specularmap.get_height() as f32) as i32);
-        self.specularmap.get(uv[0], uv[1])[0] as f32/1.
+    pub fn diffuse(&self) -> &TGAImage {
+        &self.diffusemap
+    }
+    pub fn specular(&self) -> &TGAImage {
+        &self.specularmap
     }
 }

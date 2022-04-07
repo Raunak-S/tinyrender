@@ -131,14 +131,14 @@ where
     pub fn from_vec(v: &Vec<T>) -> Self {
         Self { x: v[0], y: v[1], z: v[2] }
     }
+    pub fn norm2(&self) -> f32 {
+        *self * *self
+    }
     pub fn norm(&self) -> f32 {
-        (self.x * self.x + self.y * self.y + self.z * self.z)
-            .to_f32()
-            .unwrap()
-            .sqrt()
+        self.norm2().sqrt()
     }
     pub fn normalize(&mut self) -> &Self {
-        *self = (*self) * (1.0 / self.norm());
+        *self = (*self) / self.norm();
         self
     }
     pub fn into_float(v: Vec3i) -> Vec3f {
@@ -227,6 +227,19 @@ where
     }
 }
 
+impl<T: num::Num> Div<f32> for Vec3D<T>
+where
+    T: num::Num + num::NumCast + Lossyf32, 
+{
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self { x: T::lossy_from_f32(self.x.to_f32().unwrap()/rhs), 
+            y: T::lossy_from_f32(self.y.to_f32().unwrap()/rhs), 
+            z: T::lossy_from_f32(self.z.to_f32().unwrap()/rhs) }
+    }
+}
+
 impl<T> BitXor for Vec3D<T>
 where
     T: num::Num + Copy,
@@ -300,7 +313,7 @@ impl Lossyf32 for f32 {
 
 const DEFAULT_ALLOC: usize = 4;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Matrix {
     m: Vec<Vec<f32>>,
     rows: i32,
@@ -338,6 +351,14 @@ impl Matrix {
     }
     pub fn ncols(&self) -> i32 {
         self.cols
+    }
+    pub fn col(&self, idx: i32) -> Vec<f32> {
+        assert!(idx>=0 && idx<self.cols);
+        let mut ret = vec![];
+        for i in 0..self.rows as usize {
+            ret.push(self.m[i][idx as usize]);
+        }
+        ret
     }
     pub fn set_col(&mut self, idx: i32, v: &Vec<f32>) {
         assert!(idx<self.cols);
@@ -420,7 +441,7 @@ impl Matrix {
         let mut ret = Matrix::new(Some(self.rows-1), Some(self.cols-1));
         for i in 0..self.rows-1 {
             for j in 0..self.cols-1 {
-                ret[i as usize][j as usize] = self.m[if i<self.rows {i as usize} else {i as usize+1}][if j<self.cols {j as usize} else {j as usize+1}];
+                ret[i as usize][j as usize] = self.m[if i<row {i as usize} else {i as usize+1}][if j<col {j as usize} else {j as usize+1}];
             }
         }
         ret
@@ -535,11 +556,27 @@ pub fn cross<T: num::Num + Copy>(v1: Vec3D<T>, v2: Vec3D<T>) -> Vec3D<T> {
     }
 }
 
-pub fn embed(v: &Vec3f) -> Vec4f {
-    let fill = 1.;
+pub fn embed(v: &Vec3f, fill: Option<f32>) -> Vec4f {
+    let fill = match fill {
+        Some(val) => val,
+        None => 1.,
+    };
     let mut ret = Vec4f::new();
     for i in (0..4).rev() {
         ret[i] = if i<3 { v[i] } else { fill };
+    }
+    ret
+}
+
+pub fn embed_refactor<const T: usize>(v: &Vec<f32>, fill: Option<f32>) -> Vec<f32> {
+    let fill = match fill {
+        Some(val) => val,
+        None => 1.,
+    };
+
+    let mut ret: Vec<f32> = vec![];
+    for i in 0..T {
+        ret.push(if i<v.len() { v[i] } else { fill });
     }
     ret
 }
@@ -639,3 +676,4 @@ impl<T: num::Num> IndexMut<usize> for Vec4D<T> {
         }
     }
 }
+

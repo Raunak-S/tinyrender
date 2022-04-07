@@ -105,7 +105,7 @@ impl Index<usize> for TGAColor {
     fn index(&self, index: usize) -> &Self::Output {
         match self.color_type {
             ColorType::Raw(ref arr) => &arr[index],
-            _ => &0,
+            _ => panic!(),
         }
     }
 }
@@ -116,13 +116,13 @@ impl IndexMut<usize> for TGAColor {
             ColorType::Raw(ref mut arr) => &mut arr[index],
             ColorType::RGBA(ref mut rgba) => {
                 if index == 0 {
-                    return &mut rgba.r;
+                    return &mut rgba.b;
                 } else {
                     if index == 1 {
                         return &mut rgba.g;
                     } else {
                         if index == 2 {
-                            return &mut rgba.b;
+                            return &mut rgba.r;
                     } else {
                         return &mut rgba.a;
                     }
@@ -422,74 +422,3 @@ impl TGAImage {
         todo!()
     }
 }
-
-pub fn swap<T: Clone>(a: &mut T, b: &mut T) {
-    let tmp = a.clone();
-    *a = b.clone();
-    *b = tmp;
-}
-
-pub fn line(
-    mut x0: i32,
-    mut y0: i32,
-    mut x1: i32,
-    mut y1: i32,
-    image: &mut TGAImage,
-    color: &TGAColor,
-) {
-    let mut steep = false;
-    if (x0 - x1).abs() < (y0 - y1).abs() {
-        swap(&mut x0, &mut y0);
-        swap(&mut x1, &mut y1);
-        steep = true;
-    }
-    if x0 > x1 {
-        swap(&mut x0, &mut x1);
-        swap(&mut y0, &mut y1);
-    }
-    let dx = x1 - x0;
-    let dy = y1 - y0;
-    let derror2 = dy.abs() * 2;
-    let mut error2 = 0;
-    let mut y = y0;
-    for x in x0..x1 + 1 {
-        if steep {
-            image.set(y, x, color);
-        } else {
-            image.set(x, y, color);
-        }
-        error2 += derror2;
-        if error2 > dx {
-            y += if y1 > y0 { 1 } else { -1 };
-            error2 -= dx * 2;
-        }
-    }
-}
-
-pub const WHITE: TGAColor = TGAColor {
-    color_type: ColorType::RGBA(RGBA {
-        r: 255,
-        g: 255,
-        b: 255,
-        a: 255,
-    }),
-    bytespp: 4,
-};
-pub const RED: TGAColor = TGAColor {
-    color_type: ColorType::RGBA(RGBA {
-        r: 255,
-        g: 0,
-        b: 0,
-        a: 255,
-    }),
-    bytespp: 4,
-};
-pub const GREEN: TGAColor = TGAColor {
-    color_type: ColorType::RGBA(RGBA {
-        r: 0,
-        g: 255,
-        b: 0,
-        a: 255,
-    }),
-    bytespp: 4,
-};
