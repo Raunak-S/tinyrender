@@ -33,7 +33,7 @@ impl<'a> Shader<'a> {
     pub fn new(m: &'a Model, view_bundle: &ViewBundle) -> Self {
         Self {
             model: m,
-            uniform_l: Vec3f::from_vec(&proj_refactor(Into::<Vec<f32>>::into(view_bundle.ModelView.clone()*embed(&light_dir, Some(0.))), 3)),
+            uniform_l: *Vec3f::from_vec(&proj_refactor(Into::<Vec<f32>>::into(view_bundle.ModelView.clone()*embed(&light_dir, Some(0.))), 3)).normalize(),
             varying_uv: Matrix::new(Some(2), Some(3)),
             varying_nrm: Matrix::new(Some(3), Some(3)),
             view_tri: Matrix::new(Some(3), Some(3)),
@@ -54,7 +54,6 @@ impl<'a> IShader for Shader<'a> {
     fn fragment(&self, bar: Vec3f) -> (bool, TGAColor) {
         let bn = Vec3f::from_vec(&(self.varying_nrm.clone()*vec![bar[0], bar[1], bar[2]])).normalize().to_owned();
         let uv = Vec2f::new_args((self.varying_uv.clone()*vec![bar[0], bar[1], bar[2]])[0], (self.varying_uv.clone()*vec![bar[0], bar[1], bar[2]])[1]);
-        //dbg!(bn);
         // TODO: this matrix definition might be wrong
         let mut AI = Matrix::new(Some(3), Some(3));
         let col0 = Vec3f::from_vec(&self.view_tri.col(0));
@@ -79,11 +78,10 @@ impl<'a> IShader for Shader<'a> {
         let spec = (-r.z).max(0.).powf(5.+Shader::sample2D(self.model.specular(), &uv)[0] as f32);
 
         let c = Shader::sample2D(self.model.diffuse(), &uv);
-        let mut gl_FragColor = TGAColor::new_rgba(255, 255, 255, 255);
+        let mut gl_FragColor = TGAColor::new_rgba(255, 255, 255, 0);
         for i in 0..3 {
             gl_FragColor[i] = (10.+c[i] as f32*(diff+spec).min(255.)) as u8;
         }
-
         (false, gl_FragColor)
     }
 }
@@ -105,7 +103,7 @@ fn main() {
         for j in 0..3 {
             clip_vert[j as usize] = shader.vertex(i as i32, j, &view_bundle);
         }
-        //if i == 3 { panic!() }
+        //if i == 30 { panic!() }
         triangle(&clip_vert, &shader, &mut framebuffer, &mut zbuffer, &view_bundle);
     }
     framebuffer.flip_vertically();

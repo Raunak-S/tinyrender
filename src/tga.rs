@@ -55,6 +55,7 @@ pub enum ColorType {
     Val(u32),
 }
 
+#[derive(Debug)]
 pub struct TGAColor {
     pub color_type: ColorType,
     pub bytespp: i32,

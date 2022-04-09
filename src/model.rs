@@ -26,7 +26,7 @@ impl Model {
         let mut specularmap = TGAImage::new();
         let model = Obj::load(filename).unwrap();
         Model::load_texture(&String::from(filename), "_diffuse.tga", &mut diffusemap);
-        Model::load_texture(&String::from(filename), "_nm.tga", &mut normalmap);
+        Model::load_texture(&String::from(filename), "_nm_tangent.tga", &mut normalmap);
         Model::load_texture(&String::from(filename), "_spec.tga", &mut specularmap);
         Self {
             obj: model,
@@ -68,7 +68,7 @@ impl Model {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nthvert as usize]
             .1
             .unwrap();
-
+            
         Vec2f::new_args(self.obj.data.texture[idx][0], 1.-self.obj.data.texture[idx][1])
     }
     pub fn norm(&self, iface: i32, nvert: i32) -> Vec3f {
@@ -79,13 +79,8 @@ impl Model {
         Vec3f::new_args(norm[0], norm[1], norm[2]).normalize().to_owned()
     }
     pub fn normal(&self, uvf: &Vec2f) -> Vec3f {
-        let uv = Vec2i::new_args((uvf[0]*self.normalmap.get_width() as f32) as i32, (uvf[1]*self.normalmap.get_height() as f32) as i32);
-        let c = self.normalmap.get(uv[0], uv[1]);
-        let mut res = Vec3f::new();
-        for i in 0..3 {
-            res[2-i] = c[i] as f32/255.*2.-1.;
-        }
-        res
+        let c = self.normalmap.get((uvf[0]*self.normalmap.get_width() as f32) as i32, (uvf[1]*self.normalmap.get_height() as f32) as i32);  
+        Vec3f::new_args(c[2] as f32, c[1] as f32, c[0] as f32)*2./255. - Vec3f::new_args(1., 1., 1.)
     }
 
     pub fn diffuse(&self) -> &TGAImage {
