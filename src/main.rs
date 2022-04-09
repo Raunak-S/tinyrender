@@ -9,7 +9,7 @@ use num::pow;
 use obj::Obj;
 use time::Instant;
 
-const INPUT: &str = "obj/african_head.obj";
+const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/diablo3_pose.obj";
 const OUTPUT: &str = "obj/output.tga";
 const ZBUFFER_OUTPUT: &str = "obj/zbuffer.tga";
 
@@ -107,6 +107,6 @@ fn main() {
         triangle(&clip_vert, &shader, &mut framebuffer, &mut zbuffer, &view_bundle);
     }
     framebuffer.flip_vertically();
-    framebuffer.write_tga_file("obj/framebuffer.tga", false).unwrap();
+    framebuffer.write_tga_file("/home/raunaks/Projects/tinyrender/obj/framebuffer.tga", false).unwrap();
 
 }
