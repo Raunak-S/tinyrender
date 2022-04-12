@@ -1,9 +1,8 @@
-use crate::{geometry::*, model::Model, WIDTH};
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{prelude::*, BufReader};
 use std::io::{self, Error};
-use std::ops::{Mul, Index, IndexMut};
+use std::ops::{Index, IndexMut, Mul};
 
 #[derive(Debug)]
 struct TGAHeader {
@@ -124,14 +123,16 @@ impl IndexMut<usize> for TGAColor {
                     } else {
                         if index == 2 {
                             return &mut rgba.r;
-                    } else {
-                        return &mut rgba.a;
+                        } else {
+                            return &mut rgba.a;
+                        }
                     }
                 }
             }
-            },
-            _ => {eprintln!("{:?}", self.color_type);
-                panic!()},
+            _ => {
+                eprintln!("{:?}", self.color_type);
+                panic!()
+            }
         }
     }
 }
@@ -202,7 +203,7 @@ impl TGAImage {
     }
 
     pub fn read_tga_file(&mut self, filename: &str) -> io::Result<()> {
-        let mut f = File::open(filename)?;
+        let mut f = BufReader::new(File::open(filename)?);
 
         let header = TGAHeader {
             id_length: f.read_u8()?,
@@ -247,13 +248,13 @@ impl TGAImage {
         Ok(())
     }
 
-    pub fn load_rle_data(&mut self, f: &mut File) -> bool {
+    pub fn load_rle_data(&mut self, f: &mut BufReader<File>) -> bool {
         let pixelcount = (self.width * self.height) as u32;
         let mut currentpixel = 0 as u32;
         let mut currentbyte = 0 as u32;
         let colorbuffer = TGAColor::new_raw(&[0; 4], self.bytespp);
         loop {
-            let mut chunkheader = 0 as u8;
+            let mut chunkheader;
             match f.read_u8() {
                 Ok(val) => chunkheader = val,
                 Err(e) => {
@@ -311,10 +312,10 @@ impl TGAImage {
         let developer_area_ref: [u8; 4] = [0, 0, 0, 0];
         let extension_area_ref: [u8; 4] = [0, 0, 0, 0];
 
-        let mut footer: &[char] = &[
-            'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.',
-            '\0',
-        ];
+        // let mut footer: &[char] = &[
+        //     'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.',
+        //     '\0',
+        // ];
 
         let mut out = File::create(filename)?;
         let mut header = TGAHeader::new();
@@ -376,12 +377,12 @@ impl TGAImage {
                 let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
                     [index..index + self.bytespp as usize];
                 ptr.copy_from_slice(&[buf.b, buf.g, buf.r]);
-            },
+            }
             ColorType::Val(val) => {
                 let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
-                [index..index + self.bytespp as usize];
-            ptr.copy_from_slice(&[*val as u8]);
-            },
+                    [index..index + self.bytespp as usize];
+                ptr.copy_from_slice(&[*val as u8]);
+            }
             _ => println!("Nothing here"),
         }
         true

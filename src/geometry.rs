@@ -1,4 +1,4 @@
-use std::ops::{Add, BitXor, Index, IndexMut, Mul, Sub, Div};
+use std::ops::{Add, BitXor, Div, Index, IndexMut, Mul, Sub};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vec2D<T>
@@ -11,7 +11,7 @@ where
 
 impl<T> Vec2D<T>
 where
-    T: num::Num + Copy
+    T: num::Num + Copy,
 {
     pub fn new() -> Self {
         Self {
@@ -129,7 +129,11 @@ where
         Vec3f::new_args(s[0], s[1], s[2])
     }
     pub fn from_vec(v: &Vec<T>) -> Self {
-        Self { x: v[0], y: v[1], z: v[2] }
+        Self {
+            x: v[0],
+            y: v[1],
+            z: v[2],
+        }
     }
     pub fn norm2(&self) -> f32 {
         *self * *self
@@ -229,14 +233,16 @@ where
 
 impl<T: num::Num> Div<f32> for Vec3D<T>
 where
-    T: num::Num + num::NumCast + Lossyf32, 
+    T: num::Num + num::NumCast + Lossyf32,
 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Self { x: T::lossy_from_f32(self.x.to_f32().unwrap()/rhs), 
-            y: T::lossy_from_f32(self.y.to_f32().unwrap()/rhs), 
-            z: T::lossy_from_f32(self.z.to_f32().unwrap()/rhs) }
+        Self {
+            x: T::lossy_from_f32(self.x.to_f32().unwrap() / rhs),
+            y: T::lossy_from_f32(self.y.to_f32().unwrap() / rhs),
+            z: T::lossy_from_f32(self.z.to_f32().unwrap() / rhs),
+        }
     }
 }
 
@@ -311,6 +317,21 @@ impl Lossyf32 for f32 {
     }
 }
 
+pub struct dt;
+
+impl dt {
+    pub fn det(n: usize, src: &Matrix) -> f32 {
+        if n == 1 && src.rows == 1 && src.cols == 1 {
+            return src.m[0][0];
+        }
+        let mut ret = 0f32;
+        for i in 0..n {
+            ret += src.m[0][i] * src.cofactor(0, i as i32);
+        }
+        ret
+    }
+}
+
 const DEFAULT_ALLOC: usize = 4;
 
 #[derive(Clone, Debug)]
@@ -353,7 +374,7 @@ impl Matrix {
         self.cols
     }
     pub fn col(&self, idx: i32) -> Vec<f32> {
-        assert!(idx>=0 && idx<self.cols);
+        assert!(idx >= 0 && idx < self.cols);
         let mut ret = vec![];
         for i in 0..self.rows as usize {
             ret.push(self.m[i][idx as usize]);
@@ -361,7 +382,7 @@ impl Matrix {
         ret
     }
     pub fn set_col(&mut self, idx: i32, v: &Vec<f32>) {
-        assert!(idx<self.cols);
+        assert!(idx < self.cols);
         for i in 0..self.rows as usize {
             self.m[i][idx as usize] = v[i];
         }
@@ -428,26 +449,21 @@ impl Matrix {
         truncate
     }
     pub fn det(&self) -> f32 {
-        if self.rows == 1 && self.cols == 1 {
-            return self.m[0][0]
-        }
-        let mut ret = 0f32;
-        for i in 0..self.rows {
-            ret += self.m[0][i as usize]*self.cofactor(0, i);
-        }
-        ret
+        dt::det(self.cols as usize, self)
     }
     pub fn get_minor(&self, row: i32, col: i32) -> Matrix {
-        let mut ret = Matrix::new(Some(self.rows-1), Some(self.cols-1));
-        for i in 0..self.rows-1 {
-            for j in 0..self.cols-1 {
-                ret[i as usize][j as usize] = self.m[if i<row {i as usize} else {i as usize+1}][if j<col {j as usize} else {j as usize+1}];
+        let mut ret = Matrix::new(Some(self.rows - 1), Some(self.cols - 1));
+        for i in 0..self.rows - 1 {
+            for j in 0..self.cols - 1 {
+                ret[i as usize][j as usize] = self.m
+                    [if i < row { i as usize } else { i as usize + 1 }]
+                    [if j < col { j as usize } else { j as usize + 1 }];
             }
         }
         ret
     }
     pub fn cofactor(&self, row: i32, col: i32) -> f32 {
-        self.get_minor(row,col).det()*(if (row+col)%2!=0 { -1. } else { 1. })
+        self.get_minor(row, col).det() * (if (row + col) % 2 != 0 { -1. } else { 1. })
     }
     pub fn adjugate(&self) -> Matrix {
         let mut ret = Matrix::new(Some(self.rows), Some(self.cols));
@@ -460,15 +476,13 @@ impl Matrix {
     }
     pub fn invert_transpose(&self) -> Matrix {
         let ret = self.adjugate();
-        let tmp = Vec3f::from_vec(&ret[0])*Vec3f::from_vec(&self.m[0]);
-        ret/tmp
+        let tmp = Vec3f::from_vec(&ret[0]) * Vec3f::from_vec(&self.m[0]);
+        ret / tmp
     }
     pub fn invert(&self) -> Matrix {
         self.invert_transpose().transpose()
     }
 }
-
-
 
 impl Index<usize> for Matrix {
     type Output = Vec<f32>;
@@ -511,7 +525,7 @@ impl Mul<Vec4f> for Matrix {
         let mut ret = Vec4f::new();
         for i in 0..self.rows as usize {
             for j in 0..self.cols as usize {
-                ret[i] += self[i][j]*rhs[j];
+                ret[i] += self[i][j] * rhs[j];
             }
         }
         ret
@@ -526,7 +540,7 @@ impl Mul<Vec<f32>> for Matrix {
         for i in 0..self.rows as usize {
             let mut ret_val = 0.;
             for j in 0..self.cols as usize {
-                ret_val += self[i][j]*rhs[j];
+                ret_val += self[i][j] * rhs[j];
             }
             ret.push(ret_val);
         }
@@ -541,7 +555,7 @@ impl Div<f32> for Matrix {
         let mut ret = Matrix::new(Some(self.rows), Some(self.cols));
         for i in 0..self.rows as usize {
             for j in 0..self.cols as usize {
-                ret[i][j] = self.m[i][j]/rhs;
+                ret[i][j] = self.m[i][j] / rhs;
             }
         }
         ret
@@ -563,7 +577,7 @@ pub fn embed(v: &Vec3f, fill: Option<f32>) -> Vec4f {
     };
     let mut ret = Vec4f::new();
     for i in (0..4).rev() {
-        ret[i] = if i<3 { v[i] } else { fill };
+        ret[i] = if i < 3 { v[i] } else { fill };
     }
     ret
 }
@@ -576,7 +590,7 @@ pub fn embed_refactor<const T: usize>(v: &Vec<f32>, fill: Option<f32>) -> Vec<f3
 
     let mut ret: Vec<f32> = vec![];
     for i in 0..T {
-        ret.push(if i<v.len() { v[i] } else { fill });
+        ret.push(if i < v.len() { v[i] } else { fill });
     }
     ret
 }
@@ -597,7 +611,6 @@ pub fn proj_refactor<T: Copy>(v: Vec<T>, len: usize) -> Vec<T> {
     ret
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Vec4D<T>
 where
@@ -613,7 +626,12 @@ pub type Vec4f = Vec4D<f32>;
 
 impl Vec4f {
     pub fn new() -> Self {
-        Self { x: 0., y: 0., z: 0., a: 0. }
+        Self {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+            a: 0.,
+        }
     }
 }
 
@@ -625,15 +643,17 @@ impl<T: num::Num> Into<Vec<T>> for Vec4D<T> {
 
 impl<T: num::Num> Div<f32> for Vec4D<T>
 where
-    T: num::Num + num::NumCast + Lossyf32, 
+    T: num::Num + num::NumCast + Lossyf32,
 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Self { x: T::lossy_from_f32(self.x.to_f32().unwrap()/rhs), 
-            y: T::lossy_from_f32(self.y.to_f32().unwrap()/rhs), 
-            z: T::lossy_from_f32(self.z.to_f32().unwrap()/rhs), 
-            a: T::lossy_from_f32(self.a.to_f32().unwrap()/rhs) }
+        Self {
+            x: T::lossy_from_f32(self.x.to_f32().unwrap() / rhs),
+            y: T::lossy_from_f32(self.y.to_f32().unwrap() / rhs),
+            z: T::lossy_from_f32(self.z.to_f32().unwrap() / rhs),
+            a: T::lossy_from_f32(self.a.to_f32().unwrap() / rhs),
+        }
     }
 }
 
@@ -676,4 +696,3 @@ impl<T: num::Num> IndexMut<usize> for Vec4D<T> {
         }
     }
 }
-

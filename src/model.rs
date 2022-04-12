@@ -1,8 +1,8 @@
 use obj::Obj;
 
 use crate::{
-    geometry::{Vec2i, Vec2f, Vec3f},
-    tga::{TGAImage},
+    geometry::{Vec2f, Vec3f},
+    tga::TGAImage,
 };
 
 /*
@@ -16,7 +16,7 @@ pub struct Model {
     obj: Obj,
     diffusemap: TGAImage,
     normalmap: TGAImage,
-    specularmap: TGAImage
+    specularmap: TGAImage,
 }
 
 impl Model {
@@ -34,10 +34,6 @@ impl Model {
             normalmap: normalmap,
             specularmap: specularmap,
         }
-    }
-
-    pub fn get_model(&self) -> &Obj {
-        &self.obj
     }
 
     pub fn load_texture(filename: &String, suffix: &str, img: &mut TGAImage) {
@@ -68,19 +64,28 @@ impl Model {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nthvert as usize]
             .1
             .unwrap();
-            
-        Vec2f::new_args(self.obj.data.texture[idx][0], 1.-self.obj.data.texture[idx][1])
+
+        Vec2f::new_args(
+            self.obj.data.texture[idx][0],
+            1. - self.obj.data.texture[idx][1],
+        )
     }
     pub fn norm(&self, iface: i32, nvert: i32) -> Vec3f {
         let idx = self.obj.data.objects[0].groups[0].polys[iface as usize].0[nvert as usize]
             .2
             .unwrap();
         let norm = self.obj.data.normal[idx];
-        Vec3f::new_args(norm[0], norm[1], norm[2]).normalize().to_owned()
+        Vec3f::new_args(norm[0], norm[1], norm[2])
+            .normalize()
+            .to_owned()
     }
     pub fn normal(&self, uvf: &Vec2f) -> Vec3f {
-        let c = self.normalmap.get((uvf[0]*self.normalmap.get_width() as f32) as i32, (uvf[1]*self.normalmap.get_height() as f32) as i32);  
-        Vec3f::new_args(c[2] as f32, c[1] as f32, c[0] as f32)*2./255. - Vec3f::new_args(1., 1., 1.)
+        let c = self.normalmap.get(
+            (uvf[0] * self.normalmap.get_width() as f32) as i32,
+            (uvf[1] * self.normalmap.get_height() as f32) as i32,
+        );
+        Vec3f::new_args(c[2] as f32, c[1] as f32, c[0] as f32) * 2. / 255.
+            - Vec3f::new_args(1., 1., 1.)
     }
 
     pub fn diffuse(&self) -> &TGAImage {
