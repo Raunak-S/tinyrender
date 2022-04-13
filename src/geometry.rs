@@ -22,10 +22,6 @@ where
     pub fn new_args(newx: T, newy: T) -> Self {
         Self { x: newx, y: newy }
     }
-
-    pub fn from_vec(v: &Vec<T>) -> Self {
-        Self { x: v[0], y: v[1] }
-    }
 }
 
 impl<T> Add for Vec2D<T>
@@ -108,22 +104,12 @@ impl<T> Vec3D<T>
 where
     T: num::Num + num::ToPrimitive + num::NumCast + Copy + Lossyf32,
 {
-    pub fn new() -> Self {
-        Self {
-            x: num::zero(),
-            y: num::zero(),
-            z: num::zero(),
-        }
-    }
     pub fn new_args(newx: T, newy: T, newz: T) -> Self {
         Self {
             x: newx,
             y: newy,
             z: newz,
         }
-    }
-    pub fn from_matrix(m: Matrix) -> Vec3f {
-        Vec3f::new_args(m[0][0] / m[3][0], m[1][0] / m[3][0], m[2][0] / m[3][0])
     }
     pub fn from_slice(s: &[f32; 3]) -> Vec3f {
         Vec3f::new_args(s[0], s[1], s[2])
@@ -144,20 +130,6 @@ where
     pub fn normalize(&mut self) -> &Self {
         *self = (*self) / self.norm();
         self
-    }
-    pub fn into_float(v: Vec3i) -> Vec3f {
-        Vec3f {
-            x: v.x as f32,
-            y: v.y as f32,
-            z: v.z as f32,
-        }
-    }
-    pub fn into_int(v: Vec3f) -> Vec3i {
-        Vec3i {
-            x: v.x as i32,
-            y: v.y as i32,
-            z: v.z as i32,
-        }
     }
 }
 
@@ -296,8 +268,6 @@ impl<T: num::Num> IndexMut<usize> for Vec3D<T> {
     }
 }
 
-pub type Vec2i = Vec2D<i32>;
-pub type Vec3i = Vec3D<i32>;
 pub type Vec2f = Vec2D<f32>;
 pub type Vec3f = Vec3D<f32>;
 
@@ -359,20 +329,6 @@ impl Matrix {
             cols: col_val as i32,
         }
     }
-    pub fn from_vec3f(v: Vec3f) -> Matrix {
-        let mut m = Matrix::new(Some(4), Some(1));
-        m[0][0] = v.x;
-        m[1][0] = v.y;
-        m[2][0] = v.z;
-        m[3][0] = 1.;
-        m
-    }
-    pub fn nrows(&self) -> i32 {
-        self.rows
-    }
-    pub fn ncols(&self) -> i32 {
-        self.cols
-    }
     pub fn col(&self, idx: i32) -> Vec<f32> {
         assert!(idx >= 0 && idx < self.cols);
         let mut ret = vec![];
@@ -387,15 +343,6 @@ impl Matrix {
             self.m[i][idx as usize] = v[i];
         }
     }
-    pub fn identity(dimensions: i32) -> Self {
-        let mut E = Matrix::new(Some(dimensions), Some(dimensions));
-        for i in 0..dimensions as usize {
-            for j in 0..dimensions as usize {
-                E[i][j] = if i == j { 1. } else { 0. };
-            }
-        }
-        E
-    }
     pub fn transpose(&self) -> Self {
         let mut result = Matrix::new(Some(self.cols), Some(self.rows));
         for i in 0..self.rows as usize {
@@ -404,49 +351,6 @@ impl Matrix {
             }
         }
         result
-    }
-    pub fn inverse(&self) -> Self {
-        assert!(self.rows == self.cols);
-        let mut result = Matrix::new(Some(self.rows), Some(self.cols * 2));
-        for i in 0..self.rows as usize {
-            for j in 0..self.cols as usize {
-                result[i][j] = self.m[i][j];
-            }
-        }
-        for i in 0..self.rows as usize {
-            result[i][i + self.cols as usize] = 1.;
-        }
-        for i in 0..(self.rows - 1) as usize {
-            for j in (0..=result.cols - 1).rev() {
-                result[i][j as usize] /= result[i][i];
-            }
-            for k in i + 1..self.rows as usize {
-                let coeff = result[k][i];
-                for j in 0..result.cols as usize {
-                    result[k][j] -= result[i][j] * coeff;
-                }
-            }
-        }
-
-        for j in (self.rows - 1..=result.cols - 1).rev() {
-            result[(self.rows - 1) as usize][j as usize] /=
-                result[(self.rows - 1) as usize][(self.rows - 1) as usize];
-        }
-        for i in (1..=(self.rows - 1) as usize).rev() {
-            for k in (0..=i - 1).rev() {
-                let coeff = result[k as usize][i as usize];
-                for j in 0..result.cols as usize {
-                    result[k as usize][j as usize] -= result[i as usize][j as usize] * coeff;
-                }
-            }
-        }
-        let mut truncate = Matrix::new(Some(self.rows), Some(self.cols));
-        for i in 0..self.rows as usize {
-            for j in 0..self.cols as usize {
-                truncate[i][j] = result[i][j + self.cols as usize];
-            }
-        }
-        truncate
     }
     pub fn det(&self) -> f32 {
         dt::det(self.cols as usize, self)

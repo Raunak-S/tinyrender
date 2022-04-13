@@ -80,13 +80,6 @@ impl TGAColor {
         }
     }
 
-    pub fn new_val(v: u32, bpp: i32) -> Self {
-        Self {
-            color_type: ColorType::Val(v),
-            bytespp: bpp,
-        }
-    }
-
     pub fn new_raw(p: &[u8], bpp: i32) -> Self {
         let mut raw = [0; 4];
         for i in 0..bpp as usize {
@@ -353,10 +346,6 @@ impl TGAImage {
         out.write(self.data.as_ref().unwrap().as_slice())?;
 
         Ok(())
-    }
-
-    pub fn get_bytespp(&self) -> i32 {
-        self.bytespp
     }
 
     pub fn get_width(&self) -> i32 {
