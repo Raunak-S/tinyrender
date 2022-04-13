@@ -40,53 +40,33 @@ impl TGAHeader {
 }
 
 #[derive(Debug)]
-pub struct RGBA {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-}
-
-#[derive(Debug)]
-pub enum ColorType {
-    RGBA(RGBA),
-    Raw([u8; 4]),
-    Val(u32),
-}
-
-#[derive(Debug)]
 pub struct TGAColor {
-    pub color_type: ColorType,
-    pub bytespp: i32,
+    pub bgra: [u8; 4],
+    pub bytespp: u8,
 }
 
 impl TGAColor {
     pub fn new() -> Self {
         Self {
-            color_type: ColorType::Val(0),
-            bytespp: 1,
+            bgra: [0, 0, 0, 0],
+            bytespp: 0,
         }
     }
 
     pub fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self {
-            color_type: ColorType::RGBA(RGBA {
-                r: r,
-                g: g,
-                b: b,
-                a: a,
-            }),
+            bgra: [b, g, r, a],
             bytespp: 4,
         }
     }
 
-    pub fn new_raw(p: &[u8], bpp: i32) -> Self {
-        let mut raw = [0; 4];
+    pub fn new_raw(p: &[u8], bpp: u8) -> Self {
+        let mut bgra = [0; 4];
         for i in 0..bpp as usize {
-            raw[i] = p[i];
+            bgra[i] = p[i];
         }
         Self {
-            color_type: ColorType::Raw(raw),
+            bgra: bgra,
             bytespp: bpp,
         }
     }
@@ -96,62 +76,13 @@ impl Index<usize> for TGAColor {
     type Output = u8;
 
     fn index(&self, index: usize) -> &Self::Output {
-        match self.color_type {
-            ColorType::Raw(ref arr) => &arr[index],
-            _ => panic!(),
-        }
+        &self.bgra[index]
     }
 }
 
 impl IndexMut<usize> for TGAColor {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        match self.color_type {
-            ColorType::Raw(ref mut arr) => &mut arr[index],
-            ColorType::RGBA(ref mut rgba) => {
-                if index == 0 {
-                    return &mut rgba.b;
-                } else {
-                    if index == 1 {
-                        return &mut rgba.g;
-                    } else {
-                        if index == 2 {
-                            return &mut rgba.r;
-                        } else {
-                            return &mut rgba.a;
-                        }
-                    }
-                }
-            }
-            _ => {
-                eprintln!("{:?}", self.color_type);
-                panic!()
-            }
-        }
-    }
-}
-
-impl Mul<f32> for TGAColor {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        let rhs = if rhs > 1. {
-            1.
-        } else {
-            if rhs < 0. {
-                0.
-            } else {
-                rhs
-            }
-        };
-        match self.color_type {
-            ColorType::RGBA(rgba) => TGAColor::new_rgba(
-                (rgba.r as f32 * rhs) as u8,
-                (rgba.g as f32 * rhs) as u8,
-                (rgba.b as f32 * rhs) as u8,
-                (rgba.a as f32 * rhs) as u8,
-            ),
-            _ => TGAColor::new(),
-        }
+        &mut self.bgra[index]
     }
 }
 
@@ -245,7 +176,7 @@ impl TGAImage {
         let pixelcount = (self.width * self.height) as u32;
         let mut currentpixel = 0 as u32;
         let mut currentbyte = 0 as u32;
-        let colorbuffer = TGAColor::new_raw(&[0; 4], self.bytespp);
+        let mut colorbuffer = TGAColor::new();
         loop {
             let mut chunkheader;
             match f.read_u8() {
@@ -257,40 +188,36 @@ impl TGAImage {
             }
             if chunkheader < 128 {
                 chunkheader += 1;
-                for i in 0..chunkheader {
-                    if let ColorType::Raw(mut arr) = colorbuffer.color_type {
-                        if let Err(e) = f.read_exact(&mut arr[0..self.bytespp as usize]) {
-                            eprintln!("Error occured while reading the data, {e:?}");
-                            return false;
-                        }
-                        for t in 0..self.bytespp {
-                            self.data.as_mut().unwrap()[currentbyte as usize] = arr[t as usize];
-                            currentbyte += 1;
-                        }
-                        currentpixel += 1;
-                        if currentpixel > pixelcount {
-                            eprintln!("Too many pixels read");
-                            return false;
-                        }
+                for _ in 0..chunkheader {
+                    if let Err(e) = f.read_exact(&mut colorbuffer.bgra[0..self.bytespp as usize]) {
+                        eprintln!("Error occured while reading the data, {e:?}");
+                        return false;
+                    }
+                    for t in 0..self.bytespp {
+                        self.data.as_mut().unwrap()[currentbyte as usize] = colorbuffer.bgra[t as usize];
+                        currentbyte += 1;
+                    }
+                    currentpixel += 1;
+                    if currentpixel > pixelcount {
+                        eprintln!("Too many pixels read");
+                        return false;
                     }
                 }
             } else {
                 chunkheader -= 127;
-                if let ColorType::Raw(mut arr) = colorbuffer.color_type {
-                    if let Err(e) = f.read_exact(&mut arr[0..self.bytespp as usize]) {
-                        eprintln!("Error occured while reading the data, {e:?}");
-                        return false;
+                if let Err(e) = f.read_exact(&mut colorbuffer.bgra[0..self.bytespp as usize]) {
+                    eprintln!("Error occured while reading the data, {e:?}");
+                    return false;
+                }
+                for _ in 0..chunkheader {
+                    for t in 0..self.bytespp {
+                        self.data.as_mut().unwrap()[currentbyte as usize] = colorbuffer.bgra[t as usize];
+                        currentbyte += 1;
                     }
-                    for _ in 0..chunkheader {
-                        for t in 0..self.bytespp {
-                            self.data.as_mut().unwrap()[currentbyte as usize] = arr[t as usize];
-                            currentbyte += 1;
-                        }
-                        currentpixel += 1;
-                        if currentpixel > pixelcount {
-                            eprintln!("Too many pixels read");
-                            return false;
-                        }
+                    currentpixel += 1;
+                    if currentpixel > pixelcount {
+                        eprintln!("Too many pixels read");
+                        return false;
                     }
                 }
             }
@@ -356,25 +283,14 @@ impl TGAImage {
         self.height
     }
 
-    pub fn set(&mut self, x: i32, y: i32, c: &TGAColor) -> bool {
+    pub fn set(&mut self, x: i32, y: i32, c: &TGAColor) {
         if self.data.is_none() || x < 0 || y < 0 || x >= self.width || y >= self.height {
-            return false;
+            return;
         }
-        let index = ((x + y * self.width) * self.bytespp) as usize;
-        match &c.color_type {
-            ColorType::RGBA(buf) => {
-                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
-                    [index..index + self.bytespp as usize];
-                ptr.copy_from_slice(&[buf.b, buf.g, buf.r]);
-            }
-            ColorType::Val(val) => {
-                let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
-                    [index..index + self.bytespp as usize];
-                ptr.copy_from_slice(&[*val as u8]);
-            }
-            _ => println!("Nothing here"),
-        }
-        true
+        let index = ((x + y * self.width) * self.bytespp) as usize;   
+        let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
+        [index..index + self.bytespp as usize];
+        ptr.copy_from_slice(&c.bgra[0..self.bytespp as usize]);
     }
 
     pub fn get(&self, x: i32, y: i32) -> TGAColor {
@@ -385,7 +301,7 @@ impl TGAImage {
         let index = ((x + y * self.width) * self.bytespp) as usize;
         return TGAColor::new_raw(
             &self.data.as_ref().unwrap().as_slice()[index..index + self.bytespp as usize],
-            self.bytespp,
+            self.bytespp as u8,
         );
     }
 
