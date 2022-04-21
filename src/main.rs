@@ -7,7 +7,7 @@ use crate::{geometry::*, our_gl::*, tga::*};
 use model::*;
 use time::Instant;
 
-const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/african_head.obj";
+const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/FinalBaseMesh.obj";
 
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 800;
@@ -99,9 +99,9 @@ impl<'a> IShader for Shader<'a> {
         let col0 = Vec3f::from_vec(&self.view_tri.col(0));
         let col1 = Vec3f::from_vec(&self.view_tri.col(1));
         let col2 = Vec3f::from_vec(&self.view_tri.col(2));
-        AI[0] = vec![(col1 - col0)[0], (col1 - col0)[1], (col1 - col0)[2]];
-        AI[1] = vec![(col2 - col0)[0], (col2 - col0)[1], (col2 - col0)[2]];
-        AI[2] = vec![bn[0], bn[1], bn[2]];
+        AI[0] = [(col1 - col0)[0], (col1 - col0)[1], (col1 - col0)[2], 0.];
+        AI[1] = [(col2 - col0)[0], (col2 - col0)[1], (col2 - col0)[2], 0.];
+        AI[2] = [bn[0], bn[1], bn[2], 0.];
         AI = AI.invert();
 
         let mut i = Vec3f::from_vec(
@@ -121,17 +121,19 @@ impl<'a> IShader for Shader<'a> {
                 ]),
         );
         let mut B = Matrix::new(Some(3), Some(3));
-        B[0] = vec![
+        B[0] = [
             i.normalize().to_owned()[0],
             i.normalize().to_owned()[1],
             i.normalize().to_owned()[2],
+            0.,
         ];
-        B[1] = vec![
+        B[1] = [
             j.normalize().to_owned()[0],
             j.normalize().to_owned()[1],
             j.normalize().to_owned()[2],
+            0.,
         ];
-        B[2] = vec![bn[0], bn[1], bn[2]];
+        B[2] = [bn[0], bn[1], bn[2],0.];
         B = B.transpose();
 
         let n = Vec3f::from_vec(

@@ -306,7 +306,7 @@ const DEFAULT_ALLOC: usize = 4;
 
 #[derive(Clone, Debug)]
 pub struct Matrix {
-    m: Vec<Vec<f32>>,
+    m: [[f32; 4]; 4],
     rows: i32,
     cols: i32,
 }
@@ -324,7 +324,7 @@ impl Matrix {
             DEFAULT_ALLOC
         };
         Self {
-            m: vec![vec![0.0; col_val]; row_val],
+            m: [[0.0; 4]; 4],
             rows: row_val as i32,
             cols: col_val as i32,
         }
@@ -380,7 +380,7 @@ impl Matrix {
     }
     pub fn invert_transpose(&self) -> Matrix {
         let ret = self.adjugate();
-        let tmp = Vec3f::from_vec(&ret[0]) * Vec3f::from_vec(&self.m[0]);
+        let tmp = Vec3f::from_vec(&ret[0].to_vec()) * Vec3f::from_vec(&self.m[0].to_vec());
         ret / tmp
     }
     pub fn invert(&self) -> Matrix {
@@ -389,7 +389,7 @@ impl Matrix {
 }
 
 impl Index<usize> for Matrix {
-    type Output = Vec<f32>;
+    type Output = [f32; 4];
 
     fn index(&self, index: usize) -> &Self::Output {
         assert!(index < self.rows as usize);

@@ -2,19 +2,19 @@ use crate::{geometry::*, tga::*};
 
 pub fn viewport(x: i32, y: i32, w: i32, h: i32) -> Matrix {
     let mut m = Matrix::new(Some(4), Some(4));
-    m[0] = vec![w as f32 / 2., 0., 0., x as f32 + w as f32 / 2.];
-    m[1] = vec![0., h as f32 / 2., 0., y as f32 + h as f32 / 2.];
-    m[2] = vec![0., 0., 1., 0.];
-    m[3] = vec![0., 0., 0., 1.];
+    m[0] = [w as f32 / 2., 0., 0., x as f32 + w as f32 / 2.];
+    m[1] = [0., h as f32 / 2., 0., y as f32 + h as f32 / 2.];
+    m[2] = [0., 0., 1., 0.];
+    m[3] = [0., 0., 0., 1.];
     m
 }
 
 pub fn projection(f: f32) -> Matrix {
     let mut Projection = Matrix::new(Some(4), Some(4));
-    Projection[0] = vec![1., 0., 0., 0.];
-    Projection[1] = vec![0., -1., 0., 0.];
-    Projection[2] = vec![0., 0., 1., 0.];
-    Projection[3] = vec![0., 0., -1. / f, 0.];
+    Projection[0] = [1., 0., 0., 0.];
+    Projection[1] = [0., -1., 0., 0.];
+    Projection[2] = [0., 0., 1., 0.];
+    Projection[3] = [0., 0., -1. / f, 0.];
     Projection
 }
 
@@ -23,23 +23,23 @@ pub fn lookat(eye: Vec3f, center: Vec3f, up: Vec3f) -> Matrix {
     let x = cross(up, z).normalize().to_owned();
     let y = cross(z, x).normalize().to_owned();
     let mut Minv = Matrix::new(Some(4), Some(4));
-    Minv[0] = vec![x.x, x.y, x.z, 0.];
-    Minv[1] = vec![y.x, y.y, y.z, 0.];
-    Minv[2] = vec![z.x, z.y, z.z, 0.];
-    Minv[3] = vec![0., 0., 0., 1.];
+    Minv[0] = [x.x, x.y, x.z, 0.];
+    Minv[1] = [y.x, y.y, y.z, 0.];
+    Minv[2] = [z.x, z.y, z.z, 0.];
+    Minv[3] = [0., 0., 0., 1.];
     let mut Tr = Matrix::new(Some(4), Some(4));
-    Tr[0] = vec![1., 0., 0., -eye.x];
-    Tr[1] = vec![0., 1., 0., -eye.y];
-    Tr[2] = vec![0., 0., 1., -eye.z];
-    Tr[3] = vec![0., 0., 0., 1.];
+    Tr[0] = [1., 0., 0., -eye.x];
+    Tr[1] = [0., 1., 0., -eye.y];
+    Tr[2] = [0., 0., 1., -eye.z];
+    Tr[3] = [0., 0., 0., 1.];
     Minv * Tr
 }
 
 pub fn barycentric(tri: &[Vec2f; 3], P: &Vec2f) -> Vec3f {
     let mut ABC = Matrix::new(Some(3), Some(3));
-    ABC[0] = embed_refactor::<3>(&vec![tri[0][0], tri[0][1]], None);
-    ABC[1] = embed_refactor::<3>(&vec![tri[1][0], tri[1][1]], None);
-    ABC[2] = embed_refactor::<3>(&vec![tri[2][0], tri[2][1]], None);
+    ABC[0] = [tri[0][0], tri[0][1],1.,0.];
+    ABC[1] = [tri[1][0], tri[1][1],1.,0.];
+    ABC[2] = [tri[2][0], tri[2][1],1.,0.];
     if ABC.det() < 1e-3 {
         return Vec3f::new_args(-1., 1., 1.);
     }
