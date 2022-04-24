@@ -7,7 +7,7 @@ use crate::{geometry::*, our_gl::*, tga::*};
 use model::*;
 use time::Instant;
 
-const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/FinalBaseMesh.obj";
+const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/african_head/african_head.obj";
 
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 800;
