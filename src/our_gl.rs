@@ -37,13 +37,13 @@ pub fn lookat(eye: Vec3f, center: Vec3f, up: Vec3f) -> Matrix {
 
 pub fn barycentric(tri: &[Vec2f; 3], P: &Vec2f) -> Vec3f {
     let mut ABC = Matrix::new(Some(3), Some(3));
-    ABC[0] = [tri[0][0], tri[0][1],1.,0.];
-    ABC[1] = [tri[1][0], tri[1][1],1.,0.];
-    ABC[2] = [tri[2][0], tri[2][1],1.,0.];
+    ABC[0] = [tri[0][0], tri[0][1], 1., 0.];
+    ABC[1] = [tri[1][0], tri[1][1], 1., 0.];
+    ABC[2] = [tri[2][0], tri[2][1], 1., 0.];
     if ABC.det() < 1e-3 {
         return Vec3f::new_args(-1., 1., 1.);
     }
-    Vec3f::from_vec(&(ABC.invert_transpose() * embed_refactor::<3>(&vec![P[0], P[1]], None)))
+    ABC.invert_transpose() * [P[0], P[1], 1.]
 }
 
 pub struct ViewBundle {

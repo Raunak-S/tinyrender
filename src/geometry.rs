@@ -111,7 +111,7 @@ where
             z: newz,
         }
     }
-    pub fn from_slice(s: &[f32; 3]) -> Vec3f {
+    pub fn from_slice(s: &[f32]) -> Vec3f {
         Vec3f::new_args(s[0], s[1], s[2])
     }
     pub fn from_vec(v: &Vec<T>) -> Self {
@@ -329,11 +329,11 @@ impl Matrix {
             cols: col_val as i32,
         }
     }
-    pub fn col(&self, idx: i32) -> Vec<f32> {
+    pub fn col(&self, idx: i32) -> [f32; 4] {
         assert!(idx >= 0 && idx < self.cols);
-        let mut ret = vec![];
+        let mut ret = [0f32; 4];
         for i in 0..self.rows as usize {
-            ret.push(self.m[i][idx as usize]);
+            ret[i] = self.m[i][idx as usize];
         }
         ret
     }
@@ -380,7 +380,7 @@ impl Matrix {
     }
     pub fn invert_transpose(&self) -> Matrix {
         let ret = self.adjugate();
-        let tmp = Vec3f::from_vec(&ret[0].to_vec()) * Vec3f::from_vec(&self.m[0].to_vec());
+        let tmp = Vec3f::from_slice(&ret[0]) * Vec3f::from_slice(&self.m[0]);
         ret / tmp
     }
     pub fn invert(&self) -> Matrix {
@@ -433,6 +433,22 @@ impl Mul<Vec4f> for Matrix {
             }
         }
         ret
+    }
+}
+
+impl Mul<[f32; 3]> for Matrix {
+    type Output = Vec3f;
+
+    fn mul(self, rhs: [f32; 3]) -> Self::Output {
+        let mut ret = [0f32; 3];
+        for i in 0..self.rows as usize {
+            let mut ret_val = 0.;
+            for j in 0..self.cols as usize {
+                ret_val += self[i][j] * rhs[j];
+            }
+            ret[i] = ret_val;
+        }
+        Vec3f::from_slice(&ret)
     }
 }
 

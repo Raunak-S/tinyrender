@@ -7,7 +7,7 @@ use crate::{geometry::*, our_gl::*, tga::*};
 use model::*;
 use time::Instant;
 
-const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/african_head/african_head.obj";
+const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/diablo3_pose/diablo3_pose.obj";
 
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 800;
@@ -87,39 +87,35 @@ impl<'a> IShader for Shader<'a> {
     }
 
     fn fragment(&self, bar: Vec3f) -> (bool, TGAColor) {
-        let bn = Vec3f::from_vec(&(self.varying_nrm.clone() * vec![bar[0], bar[1], bar[2]]))
+        let bn = (self.varying_nrm.clone() * [bar[0], bar[1], bar[2]])
             .normalize()
             .to_owned();
         let uv = Vec2f::new_args(
-            (self.varying_uv.clone() * vec![bar[0], bar[1], bar[2]])[0],
-            (self.varying_uv.clone() * vec![bar[0], bar[1], bar[2]])[1],
+            (self.varying_uv.clone() * [bar[0], bar[1], bar[2]])[0],
+            (self.varying_uv.clone() * [bar[0], bar[1], bar[2]])[1],
         );
         // TODO: this matrix definition might be wrong
         let mut AI = Matrix::new(Some(3), Some(3));
-        let col0 = Vec3f::from_vec(&self.view_tri.col(0));
-        let col1 = Vec3f::from_vec(&self.view_tri.col(1));
-        let col2 = Vec3f::from_vec(&self.view_tri.col(2));
-        AI[0] = [(col1 - col0)[0], (col1 - col0)[1], (col1 - col0)[2], 0.];
-        AI[1] = [(col2 - col0)[0], (col2 - col0)[1], (col2 - col0)[2], 0.];
+        let col0 = self.view_tri.col(0);
+        let col1 = self.view_tri.col(1);
+        let col2 = self.view_tri.col(2);
+        AI[0] = [col1[0] - col0[0], col1[1] - col0[1], col1[2] - col0[2], 0.];
+        AI[1] = [col2[0] - col0[0], col2[1] - col0[1], col2[2] - col0[2], 0.];
         AI[2] = [bn[0], bn[1], bn[2], 0.];
         AI = AI.invert();
 
-        let mut i = Vec3f::from_vec(
-            &(AI.clone()
-                * vec![
-                    self.varying_uv[0][1] - self.varying_uv[0][0],
-                    self.varying_uv[0][2] - self.varying_uv[0][0],
-                    0.,
-                ]),
-        );
-        let mut j = Vec3f::from_vec(
-            &(AI.clone()
-                * vec![
-                    self.varying_uv[1][1] - self.varying_uv[1][0],
-                    self.varying_uv[1][2] - self.varying_uv[1][0],
-                    0.,
-                ]),
-        );
+        let mut i = AI.clone()
+            * [
+                self.varying_uv[0][1] - self.varying_uv[0][0],
+                self.varying_uv[0][2] - self.varying_uv[0][0],
+                0.,
+            ];
+        let mut j = AI.clone()
+            * [
+                self.varying_uv[1][1] - self.varying_uv[1][0],
+                self.varying_uv[1][2] - self.varying_uv[1][0],
+                0.,
+            ];
         let mut B = Matrix::new(Some(3), Some(3));
         B[0] = [
             i.normalize().to_owned()[0],
@@ -133,16 +129,14 @@ impl<'a> IShader for Shader<'a> {
             j.normalize().to_owned()[2],
             0.,
         ];
-        B[2] = [bn[0], bn[1], bn[2],0.];
+        B[2] = [bn[0], bn[1], bn[2], 0.];
         B = B.transpose();
 
-        let n = Vec3f::from_vec(
-            &(B * vec![
-                self.model.normal(&uv)[0],
-                self.model.normal(&uv)[1],
-                self.model.normal(&uv)[2],
-            ]),
-        )
+        let n = (B * [
+            self.model.normal(&uv)[0],
+            self.model.normal(&uv)[1],
+            self.model.normal(&uv)[2],
+        ])
         .normalize()
         .to_owned();
         let diff = 0f32.max(n * self.uniform_l);
