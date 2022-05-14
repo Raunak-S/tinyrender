@@ -1,8 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
 use std::io::{self, Error};
-use std::ops::{Index, IndexMut, Mul};
+use std::io::{prelude::*, BufReader};
+use std::ops::{Index, IndexMut};
 
 #[derive(Debug)]
 struct TGAHeader {
@@ -99,7 +99,7 @@ pub const TGAFormat: Format = Format {
 };
 
 pub struct TGAImage {
-    data: Option<Box<Vec<u8>>>,
+    data: Option<Vec<u8>>,
     width: i32,
     height: i32,
     bytespp: i32,
@@ -116,10 +116,8 @@ impl TGAImage {
     }
 
     pub fn new_dimensions(w: i32, h: i32, bpp: i32) -> Self {
-        let nbytes = w * h * bpp;
-        let data = vec![0; nbytes as usize];
         Self {
-            data: Some(Box::new(data)),
+            data: Some(vec![0; (w * h * bpp) as usize]),
             width: w,
             height: h,
             bytespp: bpp,
@@ -148,8 +146,7 @@ impl TGAImage {
         self.height = header.height as i32;
         self.bytespp = header.bits_per_pixel as i32 >> 3;
 
-        let nbytes = self.bytespp * self.width * self.height;
-        self.data = Some(Box::new(vec![0; nbytes as usize]));
+        self.data = Some(vec![0; (self.bytespp * self.width * self.height) as usize]);
 
         if header.data_type_code == 3 || header.data_type_code == 2 {
             todo!()
@@ -194,7 +191,8 @@ impl TGAImage {
                         return false;
                     }
                     for t in 0..self.bytespp {
-                        self.data.as_mut().unwrap()[currentbyte as usize] = colorbuffer.bgra[t as usize];
+                        self.data.as_mut().unwrap()[currentbyte as usize] =
+                            colorbuffer.bgra[t as usize];
                         currentbyte += 1;
                     }
                     currentpixel += 1;
@@ -211,7 +209,8 @@ impl TGAImage {
                 }
                 for _ in 0..chunkheader {
                     for t in 0..self.bytespp {
-                        self.data.as_mut().unwrap()[currentbyte as usize] = colorbuffer.bgra[t as usize];
+                        self.data.as_mut().unwrap()[currentbyte as usize] =
+                            colorbuffer.bgra[t as usize];
                         currentbyte += 1;
                     }
                     currentpixel += 1;
@@ -287,9 +286,9 @@ impl TGAImage {
         if self.data.is_none() || x < 0 || y < 0 || x >= self.width || y >= self.height {
             return;
         }
-        let index = ((x + y * self.width) * self.bytespp) as usize;   
-        let ptr = &mut self.data.as_mut().unwrap().as_mut_slice()
-        [index..index + self.bytespp as usize];
+        let index = ((x + y * self.width) * self.bytespp) as usize;
+        let ptr =
+            &mut self.data.as_mut().unwrap().as_mut_slice()[index..index + self.bytespp as usize];
         ptr.copy_from_slice(&c.bgra[0..self.bytespp as usize]);
     }
 
