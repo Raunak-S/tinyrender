@@ -6,8 +6,7 @@ mod tga;
 use crate::{geometry::*, our_gl::*, tga::*};
 use model::*;
 use time::Instant;
-
-const INPUT: &str = "/home/raunaks/Projects/tinyrender/obj/diablo3_pose/diablo3_pose.obj";
+use clap::Parser;
 
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 800;
@@ -156,7 +155,22 @@ impl<'a> IShader for Shader<'a> {
     }
 }
 
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+
+    // Path to the obj file
+    #[clap(short, long)]
+    obj_path: String,
+
+}
+
+
 fn main() {
+
+    let args = Args::parse();
+    let INPUT = &args.obj_path[..];
+
     let mut framebuffer = TGAImage::new_dimensions(WIDTH, HEIGHT, TGAFormat.RGB as i32);
     let ModelView = lookat(eye, center, up);
     let ViewPort = viewport(WIDTH / 8, HEIGHT / 8, WIDTH * 3 / 4, HEIGHT * 3 / 4);
