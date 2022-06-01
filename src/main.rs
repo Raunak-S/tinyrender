@@ -159,7 +159,7 @@ impl<'a> IShader for Shader<'a> {
 #[clap(author, version, about, long_about = None)]
 struct Args {
 
-    // Path to the obj file
+    /// Path to the obj file
     #[clap(short, long)]
     obj_path: String,
 
