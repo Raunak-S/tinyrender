@@ -171,7 +171,7 @@ fn main() {
     let args = Args::parse();
     let INPUT = &args.obj_path[..];
 
-    let mut framebuffer = TGAImage::new_dimensions(WIDTH, HEIGHT, TGAFormat.RGB as i32);
+    let mut framebuffer = TGAImage::new_dimensions(WIDTH, HEIGHT, TGAFormat::RGB as i32);
     let ModelView = lookat(eye, center, up);
     let ViewPort = viewport(WIDTH / 8, HEIGHT / 8, WIDTH * 3 / 4, HEIGHT * 3 / 4);
     let Projection = projection((eye - center).norm());

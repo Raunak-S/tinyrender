@@ -86,17 +86,11 @@ impl IndexMut<usize> for TGAColor {
     }
 }
 
-pub struct Format {
-    pub Grayscale: u8,
-    pub RGB: u8,
-    pub RGBA: u8,
+pub enum TGAFormat {
+    Grayscale = 1,
+    RGB = 3,
+    RGBA = 4,
 }
-
-pub const TGAFormat: Format = Format {
-    Grayscale: 1,
-    RGB: 3,
-    RGBA: 4,
-};
 
 pub struct TGAImage {
     data: Option<Vec<u8>>,
@@ -241,7 +235,7 @@ impl TGAImage {
         header.bits_per_pixel = (self.bytespp as u8) << 3;
         header.width = self.width as u16;
         header.height = self.height as u16;
-        header.data_type_code = if self.bytespp == TGAFormat.Grayscale as i32 {
+        header.data_type_code = if self.bytespp == TGAFormat::Grayscale as i32 {
             if rle {
                 11
             } else {
