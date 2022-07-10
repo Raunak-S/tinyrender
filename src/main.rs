@@ -132,10 +132,10 @@ impl<'a> IShader for Shader<'a> {
         B = B.transpose();
 
         let n = (B * [
-            self.model.normal(&uv)[0],
-            self.model.normal(&uv)[1],
-            self.model.normal(&uv)[2],
-        ])
+                self.model.normal(&uv)[0],
+                self.model.normal(&uv)[1],
+                self.model.normal(&uv)[2],
+            ])
         .normalize()
         .to_owned();
         let diff = 0f32.max(n * self.uniform_l);
