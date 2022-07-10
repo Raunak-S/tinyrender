@@ -4,9 +4,9 @@ mod our_gl;
 mod tga;
 
 use crate::{geometry::*, our_gl::*, tga::*};
+use clap::Parser;
 use model::*;
 use time::Instant;
-use clap::Parser;
 
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 800;
@@ -132,10 +132,10 @@ impl<'a> IShader for Shader<'a> {
         B = B.transpose();
 
         let n = (B * [
-                self.model.normal(&uv)[0],
-                self.model.normal(&uv)[1],
-                self.model.normal(&uv)[2],
-            ])
+            self.model.normal(&uv)[0],
+            self.model.normal(&uv)[1],
+            self.model.normal(&uv)[2],
+        ])
         .normalize()
         .to_owned();
         let diff = 0f32.max(n * self.uniform_l);
@@ -158,16 +158,12 @@ impl<'a> IShader for Shader<'a> {
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-
     /// Path to the obj file
     #[clap(short, long)]
     obj_path: String,
-
 }
 
-
 fn main() {
-
     let args = Args::parse();
     let INPUT = &args.obj_path[..];
 
