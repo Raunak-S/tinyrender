@@ -1,3 +1,7 @@
+use std::sync::{Arc, RwLock};
+
+use crossbeam::sync::ShardedLock;
+
 use crate::{geometry::*, tga::*};
 
 pub fn viewport(x: i32, y: i32, w: i32, h: i32) -> Matrix {
@@ -52,7 +56,7 @@ pub struct ViewBundle {
     pub Projection: Matrix,
 }
 
-pub trait IShader {
+pub trait IShader: Send + Sync {
     fn sample2D(img: &TGAImage, uvf: &Vec2f) -> TGAColor {
         img.get(
             (uvf[0] * img.get_width() as f32) as i32,
@@ -96,30 +100,41 @@ pub fn triangle(
         }
     }
 
-    for x in (bboxmin.x as i32)..=(bboxmax.x as i32) {
-        for y in (bboxmin.y as i32)..=(bboxmax.y as i32) {
-            let bc_screen = barycentric(&pts2, &Vec2f::new_args(x as f32, y as f32));
-            let mut bc_clip = Vec3f::new_args(
-                bc_screen.x / pts[0][3],
-                bc_screen.y / pts[1][3],
-                bc_screen.z / pts[2][3],
-            );
-            bc_clip = bc_clip / (bc_clip.x + bc_clip.y + bc_clip.z);
-            let frag_depth =
-                Vec3f::new_args(clip_verts[0][2], clip_verts[1][2], clip_verts[2][2]) * bc_clip;
-            if bc_screen.x < 0.
-                || bc_screen.y < 0.
-                || bc_screen.z < 0.
-                || frag_depth > zbuffer[(x + y * image.get_width()) as usize]
-            {
-                continue;
+    let image = Arc::new(RwLock::new(image));
+    let zbuffer = Arc::new(RwLock::new(zbuffer));
+    
+    
+    crossbeam::scope(|scope| {
+        for x in (bboxmin.x as i32)..=(bboxmax.x as i32) {
+        let image = Arc::clone(&image);
+        let zbuffer = Arc::clone(&zbuffer);
+        scope.spawn(move |_| {
+            for y in (bboxmin.y as i32)..=(bboxmax.y as i32) {
+                let bc_screen = barycentric(&pts2, &Vec2f::new_args(x as f32, y as f32));
+                let mut bc_clip = Vec3f::new_args(
+                    bc_screen.x / pts[0][3],
+                    bc_screen.y / pts[1][3],
+                    bc_screen.z / pts[2][3],
+                );
+                bc_clip = bc_clip / (bc_clip.x + bc_clip.y + bc_clip.z);
+                let frag_depth =
+                    Vec3f::new_args(clip_verts[0][2], clip_verts[1][2], clip_verts[2][2]) * bc_clip;
+                if bc_screen.x < 0.
+                    || bc_screen.y < 0.
+                    || bc_screen.z < 0.
+                    || frag_depth > zbuffer.read().unwrap()[(x + y * image.read().unwrap().get_width()) as usize]
+                {
+                    continue;
+                }
+                let (discard, color) = shader.fragment(bc_clip);
+                if discard {
+                    continue;
+                }
+                zbuffer.write().unwrap()[(x + y * image.read().unwrap().get_width()) as usize] = frag_depth;
+                image.write().unwrap().set(x, y, &color);
             }
-            let (discard, color) = shader.fragment(bc_clip);
-            if discard {
-                continue;
-            }
-            zbuffer[(x + y * image.get_width()) as usize] = frag_depth;
-            image.set(x, y, &color);
-        }
-    }
+        });
+            
+        };
+    }).unwrap();
 }
